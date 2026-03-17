@@ -4910,10 +4910,16 @@
     return String(saved).trim().toUpperCase();
   }
 
+  function getDefaultLaborEmployeeId() {
+    const employeeId = extractEmployeeId();
+    if (employeeId) return employeeId;
+    return extractUserNameOnly(detectCurrentUserName()).toUpperCase();
+  }
+
   function getEffectiveEmployeeId() {
     const override = String(laborTargetOverride || '').trim().toUpperCase();
     if (override) return override;
-    return extractEmployeeId();
+    return getDefaultLaborEmployeeId();
   }
 
   async function fetchLaborData(force = false) {
@@ -5054,10 +5060,11 @@
     if (!sumBox || !list) return;
 
     const activeEmployee = getEffectiveEmployeeId();
+    const defaultEmployee = getDefaultLaborEmployeeId();
     if (searchStatus) {
       const showingSelf = !String(laborTargetOverride || '').trim();
       searchStatus.textContent = showingSelf
-        ? `Showing: ${activeEmployee || 'Self'} (default)`
+        ? `Showing: ${defaultEmployee || 'Self'} (default)`
         : `Showing: ${activeEmployee}`;
     }
     if (searchInput && document.activeElement !== searchInput) {
