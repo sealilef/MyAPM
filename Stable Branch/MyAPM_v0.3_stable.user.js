@@ -39,6 +39,8 @@
     const CURRENT_USER_STORAGE_KEY = 'myapmCurrentUser';
     const MODAL_HOST_ID = 'myapm-results-modal-host';
     const CONTROL_Z_INDEX = '1000';
+    const REORDER_PANEL_Z_INDEX = '1000';
+    const SETTINGS_PANEL_Z_INDEX = '1001';
     const MODAL_Z_INDEX = '999999';
     const SETTINGS_PANEL_ID = 'myapm-settings-panel';
     const CONTROL_BAR_ID = 'myapm-control-bar';
@@ -4169,7 +4171,7 @@
             position: 'fixed',
             top: '60px',
             right: '20px',
-            zIndex: CONTROL_Z_INDEX,
+            zIndex: REORDER_PANEL_Z_INDEX,
             width: '380px',
             maxWidth: '92vw',
             maxHeight: '78vh',
@@ -4508,7 +4510,7 @@
             position: 'fixed',
             top: '42px',
             right: '12px',
-            zIndex: CONTROL_Z_INDEX,
+            zIndex: SETTINGS_PANEL_Z_INDEX,
             width: '760px',
             maxWidth: '92vw',
             maxHeight: '78vh',
