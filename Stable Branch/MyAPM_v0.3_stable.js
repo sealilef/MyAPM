@@ -26,7 +26,6 @@
     const CURRENT_VERSION = '0.3.88_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.js';
-    const GITHUB_URL = 'https://github.com/sealilef/MyAPM';
 
     const POLL_MS = 100;
     const NAV_TIMEOUT_MS = 15000;
@@ -336,12 +335,12 @@
         wrap.id = 'myapm-settings-update-container';
         wrap.style.display = 'none';
         Object.assign(wrap.style, {
-            marginTop: '6px'
+            flex: '0 0 auto'
         });
 
         const link = document.createElement('a');
         link.id = 'myapm-settings-update-link';
-        link.href = GITHUB_URL;
+        link.href = DOWNLOAD_URL;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.textContent = 'Update Available';
@@ -4554,7 +4553,17 @@
             color: '#f4f8ff'
         });
 
-        titleWrap.append(intro, createUpdateBanner());
+        const headingRow = document.createElement('div');
+        Object.assign(headingRow.style, {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap'
+        });
+
+        headingRow.append(intro, createUpdateBanner());
+        titleWrap.append(headingRow);
         topRow.append(titleWrap);
 
         const grid = document.createElement('div');
