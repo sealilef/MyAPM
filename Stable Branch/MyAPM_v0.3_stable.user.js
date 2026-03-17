@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.96_stable
+// @version      0.3.97_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -25,7 +25,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.96_stable';
+    const CURRENT_VERSION = '0.3.97_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/raw/refs/heads/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4574,14 +4574,30 @@
         });
 
         const intro = document.createElement('div');
-        intro.textContent = `My APM Settings (${CURRENT_VERSION})`;
         Object.assign(intro.style, {
             margin: '0',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '10px',
+            flexWrap: 'wrap',
             fontSize: '20px',
             lineHeight: '1.1',
             fontWeight: '800',
             color: '#f4f8ff'
         });
+
+        const introTitle = document.createElement('span');
+        introTitle.textContent = 'My APM Settings';
+
+        const introVersion = document.createElement('span');
+        introVersion.textContent = CURRENT_VERSION;
+        Object.assign(introVersion.style, {
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#9fb0c4'
+        });
+
+        intro.append(introTitle, introVersion);
 
         const headingRow = document.createElement('div');
         Object.assign(headingRow.style, {
