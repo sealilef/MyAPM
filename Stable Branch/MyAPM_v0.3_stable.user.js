@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.92_stable
+// @version      0.3.93_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -25,9 +25,10 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.92_stable';
+    const CURRENT_VERSION = '0.3.93_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
+    const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
 
     const POLL_MS = 100;
     const NAV_TIMEOUT_MS = 15000;
@@ -363,17 +364,17 @@
     function createUpdateBanner() {
         const wrap = document.createElement('div');
         wrap.id = 'myapm-settings-update-container';
-        wrap.style.display = 'none';
         Object.assign(wrap.style, {
-            flex: '0 0 auto'
+            flex: '0 0 auto',
+            display: 'block'
         });
 
         const link = document.createElement('a');
         link.id = 'myapm-settings-update-link';
-        link.href = DOWNLOAD_URL;
+        link.href = SCRIPT_PAGE_URL;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
-        link.textContent = 'Update Available';
+        link.textContent = 'Check for Updates';
         Object.assign(link.style, {
             display: 'inline-flex',
             alignItems: 'center',
@@ -390,7 +391,6 @@
         wrap.appendChild(link);
 
         subscribeToUpdates((remoteVersion) => {
-            wrap.style.display = 'block';
             link.textContent = remoteVersion ? `Update Available: ${remoteVersion}` : 'Update Available';
         });
 
@@ -4596,6 +4596,27 @@
         titleWrap.append(headingRow);
         topRow.append(titleWrap);
 
+        const topActions = document.createElement('div');
+        Object.assign(topActions.style, {
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-end',
+            flex: '0 0 auto',
+            minWidth: 'fit-content'
+        });
+
+        const saveBtn = createToolbarButton('Save Settings', () => {
+            closeSettingsPanel();
+            showToast('Settings Saved!', 'success');
+        });
+        saveBtn.style.font = '700 12px/22px Arial, Helvetica, sans-serif';
+        saveBtn.style.padding = '4px 14px';
+        saveBtn.style.minHeight = '30px';
+        saveBtn.style.whiteSpace = 'nowrap';
+
+        topActions.append(saveBtn);
+        topRow.append(topActions);
+
         const grid = document.createElement('div');
         Object.assign(grid.style, {
             display: 'grid',
@@ -4619,26 +4640,7 @@
             grid.appendChild(createDueWindowRow(flowKey));
         });
 
-        const footerRow = document.createElement('div');
-        Object.assign(footerRow.style, {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-            paddingTop: '2px'
-        });
-
-        const saveBtn = createToolbarButton('Save Settings', () => {
-            closeSettingsPanel();
-            showToast('Settings Saved!', 'success');
-        });
-        saveBtn.style.font = '700 12px/22px Arial, Helvetica, sans-serif';
-        saveBtn.style.padding = '4px 14px';
-        saveBtn.style.minHeight = '30px';
-
-        footerRow.append(saveBtn);
-        panel.append(topRow, grid, footerRow);
+        panel.append(topRow, grid);
         document.body.appendChild(panel);
 
         createReorderPanel();
