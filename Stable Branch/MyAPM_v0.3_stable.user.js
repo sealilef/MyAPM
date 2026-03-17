@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.89_stable
+// @version      0.3.90_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -23,7 +23,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.89_stable';
+    const CURRENT_VERSION = '0.3.90_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
 
@@ -32,6 +32,8 @@
     const READY_TIMEOUT_MS = 12000;
     const STORE_TIMEOUT_MS = 15000;
     const LINKIFY_INTERVAL_MS = 1500;
+    const UPDATE_CHECK_RETRY_MS = 4000;
+    const UPDATE_CHECK_MAX_ATTEMPTS = 3;
 
     const GRID_RESIZE_REQUEST_KEY = 'myapm_force_grid_resize_request';
     const GRID_RESIZE_RETRY_MS = 700;
@@ -316,20 +318,44 @@
         });
     }
 
-    function checkForScriptUpdates() {
-        if (window.__myapmUpdateChecked) return;
+    function buildUpdateCheckUrl() {
+        const separator = UPDATE_URL.includes('?') ? '&' : '?';
+        return `${UPDATE_URL}${separator}myapm_update_check=${Date.now()}`;
+    }
+
+    function scheduleScriptUpdateRetry(nextAttempt) {
+        if (nextAttempt > UPDATE_CHECK_MAX_ATTEMPTS) return;
+        clearTimeout(window.__myapmUpdateRetryTimer);
+        window.__myapmUpdateRetryTimer = window.setTimeout(() => {
+            checkForScriptUpdates(nextAttempt);
+        }, UPDATE_CHECK_RETRY_MS);
+    }
+
+    function checkForScriptUpdates(attempt = 1) {
+        if (window.__myapmUpdateAvailable || window.__myapmUpdateCheckInFlight) return;
+        if (attempt === 1 && window.__myapmUpdateChecked) return;
         window.__myapmUpdateChecked = true;
-        fetch(UPDATE_URL)
-            .then((response) => response.text())
+        window.__myapmUpdateCheckInFlight = true;
+        fetch(buildUpdateCheckUrl(), { cache: 'no-store' })
+            .then((response) => {
+                if (!response.ok) throw new Error(`Update check failed with ${response.status}`);
+                return response.text();
+            })
             .then((text) => {
                 const match = String(text || '').match(/\/\/\s*@version\s+([^\s]+)/i);
                 const remoteVersion = match && match[1] ? String(match[1]).trim() : '';
-                if (!remoteVersion) return;
+                if (!remoteVersion) throw new Error('Remote version missing');
                 if (isNewerVersion(CURRENT_VERSION, remoteVersion)) {
                     notifyUpdateAvailable(remoteVersion);
                 }
+                clearTimeout(window.__myapmUpdateRetryTimer);
             })
-            .catch(() => {});
+            .catch(() => {
+                scheduleScriptUpdateRetry(attempt + 1);
+            })
+            .finally(() => {
+                window.__myapmUpdateCheckInFlight = false;
+            });
     }
 
     function createUpdateBanner() {
