@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.111_stable
+// @version      0.3.112_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.111_stable';
+    const CURRENT_VERSION = '0.3.112_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4557,6 +4557,45 @@
     }
 
 
+    function createPtpSettingsToggleCard(labelText, checked, onChange) {
+        const tile = document.createElement('label');
+        Object.assign(tile.style, {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            padding: '10px 12px',
+            borderRadius: '12px',
+            background: 'rgba(7, 15, 26, 0.35)',
+            border: '1px solid rgba(88,118,156,0.35)',
+            cursor: 'pointer',
+            minWidth: '0'
+        });
+
+        const text = document.createElement('span');
+        text.textContent = labelText;
+        Object.assign(text.style, {
+            fontSize: '13px',
+            fontWeight: '700',
+            color: '#dce7f7'
+        });
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = !!checked;
+        Object.assign(input.style, {
+            width: '18px',
+            height: '18px',
+            cursor: 'pointer'
+        });
+        input.addEventListener('change', () => {
+            if (typeof onChange === 'function') onChange(!!input.checked);
+        });
+
+        tile.append(text, input);
+        return tile;
+    }
+
     function createPtpTimerCard() {
         const card = document.createElement('section');
         card.className = 'myapm-settings-card myapm-settings-card-ptp';
@@ -4573,129 +4612,13 @@
         });
 
         const title = document.createElement('div');
-        title.textContent = 'PTP Info';
+        title.textContent = 'Completed PTPs';
         Object.assign(title.style, {
             margin: '0',
             fontSize: '15px',
             fontWeight: '700',
             color: '#f3f7ff',
             letterSpacing: '0.2px'
-        });
-
-        const controlsRow = document.createElement('div');
-        Object.assign(controlsRow.style, {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-            gap: '12px',
-            alignItems: 'stretch'
-        });
-
-        const toggleRow = document.createElement('label');
-        Object.assign(toggleRow.style, {
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: '12px',
-            background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)',
-            cursor: 'pointer',
-            minWidth: '0'
-        });
-
-        const left = document.createElement('span');
-        left.textContent = 'PTP Timer';
-        Object.assign(left.style, {
-            fontSize: '13px',
-            fontWeight: '700',
-            color: '#dce7f7'
-        });
-
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = localStorage.getItem('apmPTPTimer') !== 'false';
-        Object.assign(input.style, {
-            width: '18px',
-            height: '18px',
-            cursor: 'pointer'
-        });
-
-        input.addEventListener('change', () => {
-            const enabled = !!input.checked;
-            localStorage.setItem('apmPTPTimer', enabled ? 'true' : 'false');
-            if (enabled) {
-                showToast('PTP Timer enabled.', 'success');
-                window.postMessage({ type: 'MYAPM_PTP_SETTINGS_CHANGED', enabled: true, source: 'settings' }, location.origin);
-                window.postMessage({ __myApmPtpMsgV1: true, ptpTimer: 'start', source: 'settings' }, location.origin);
-            } else {
-                showToast('PTP Timer disabled.', 'success');
-                window.postMessage({ type: 'MYAPM_PTP_SETTINGS_CHANGED', enabled: false, source: 'settings' }, location.origin);
-                window.postMessage({ __myApmPtpMsgV1: true, ptpTimer: 'reset', source: 'settings' }, location.origin);
-                const existing = document.getElementById('ptp-timer');
-                if (existing) existing.remove();
-            }
-        });
-
-        toggleRow.append(left, input);
-
-        const statusRow = document.createElement('label');
-        Object.assign(statusRow.style, {
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            padding: '10px 12px',
-            borderRadius: '12px',
-            background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)',
-            cursor: 'pointer',
-            minWidth: '0'
-        });
-
-        const statusLeft = document.createElement('span');
-        statusLeft.textContent = 'PTP Status Icons';
-        Object.assign(statusLeft.style, {
-            fontSize: '13px',
-            fontWeight: '700',
-            color: '#dce7f7'
-        });
-
-        const statusInput = document.createElement('input');
-        statusInput.type = 'checkbox';
-        statusInput.checked = localStorage.getItem('myapmPtpStatusTracking') !== 'false';
-        Object.assign(statusInput.style, {
-            width: '18px',
-            height: '18px',
-            cursor: 'pointer'
-        });
-        statusInput.addEventListener('change', () => {
-            const enabled = !!statusInput.checked;
-            localStorage.setItem('myapmPtpStatusTracking', enabled ? 'true' : 'false');
-            window.dispatchEvent(new CustomEvent('MYAPM_PTP_HISTORY_UPDATED'));
-            showToast(enabled ? 'PTP status icons enabled.' : 'PTP status icons disabled.', 'success');
-        });
-
-        const completedWrap = document.createElement('div');
-        Object.assign(completedWrap.style, {
-            display: 'flex',
-            flexDirection: 'column',
-            flex: '1 1 auto',
-            marginTop: '2px',
-            padding: '12px',
-            borderRadius: '12px',
-            background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)',
-            minHeight: '280px'
-        });
-
-        const completedTitle = document.createElement('div');
-        completedTitle.textContent = 'Completed PTPs';
-        Object.assign(completedTitle.style, {
-            fontSize: '13px',
-            fontWeight: '700',
-            color: '#dce7f7',
-            marginBottom: '10px'
         });
 
         const completedBody = document.createElement('div');
@@ -4711,7 +4634,7 @@
                 return;
             }
             completedBody.innerHTML = `
-                <div style="height:100%; min-height:220px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
+                <div style="height:100%; min-height:320px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
                     <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px;">
                         <thead>
                             <tr>
@@ -4744,10 +4667,7 @@
         window.addEventListener(PTP_HISTORY_EVENT_NAME, renderCompletedPtps);
         renderCompletedPtps();
 
-        statusRow.append(statusLeft, statusInput);
-        controlsRow.append(toggleRow, statusRow);
-        completedWrap.append(completedTitle, completedBody);
-        card.append(title, controlsRow, completedWrap);
+        card.append(title, completedBody);
         return card;
     }
 
@@ -4903,6 +4823,66 @@
         topActions.append(saveBtn);
         topRow.append(topActions);
 
+        const topContent = document.createElement('div');
+        Object.assign(topContent.style, {
+            display: 'grid',
+            gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)',
+            gap: '14px',
+            alignItems: 'stretch'
+        });
+
+        const leftColumn = document.createElement('div');
+        Object.assign(leftColumn.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: '0'
+        });
+        leftColumn.appendChild(createPtpTimerCard());
+
+        const rightColumn = document.createElement('div');
+        Object.assign(rightColumn.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            minWidth: '0'
+        });
+
+        const ptpToggleRow = document.createElement('div');
+        Object.assign(ptpToggleRow.style, {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: '12px',
+            alignItems: 'stretch'
+        });
+
+        ptpToggleRow.append(
+            createPtpSettingsToggleCard('PTP Timer', localStorage.getItem('apmPTPTimer') !== 'false', (enabled) => {
+                localStorage.setItem('apmPTPTimer', enabled ? 'true' : 'false');
+                if (enabled) {
+                    showToast('PTP Timer enabled.', 'success');
+                    window.postMessage({ type: 'MYAPM_PTP_SETTINGS_CHANGED', enabled: true, source: 'settings' }, location.origin);
+                    window.postMessage({ __myApmPtpMsgV1: true, ptpTimer: 'start', source: 'settings' }, location.origin);
+                } else {
+                    showToast('PTP Timer disabled.', 'success');
+                    window.postMessage({ type: 'MYAPM_PTP_SETTINGS_CHANGED', enabled: false, source: 'settings' }, location.origin);
+                    window.postMessage({ __myApmPtpMsgV1: true, ptpTimer: 'reset', source: 'settings' }, location.origin);
+                    const existing = document.getElementById('ptp-timer');
+                    if (existing) existing.remove();
+                }
+            }),
+            createPtpSettingsToggleCard('PTP Status Icons', localStorage.getItem('myapmPtpStatusTracking') !== 'false', (enabled) => {
+                localStorage.setItem('myapmPtpStatusTracking', enabled ? 'true' : 'false');
+                window.dispatchEvent(new CustomEvent('MYAPM_PTP_HISTORY_UPDATED'));
+                showToast(enabled ? 'PTP status icons enabled.' : 'PTP status icons disabled.', 'success');
+            })
+        );
+
+        const bookedLaborSlot = document.createElement('div');
+        bookedLaborSlot.id = 'myapm-booked-labor-settings-slot';
+        rightColumn.append(ptpToggleRow, bookedLaborSlot);
+
+        topContent.append(leftColumn, rightColumn);
+
         const grid = document.createElement('div');
         Object.assign(grid.style, {
             display: 'grid',
@@ -4911,10 +4891,6 @@
             alignItems: 'stretch'
         });
 
-        grid.appendChild(createPtpTimerCard());
-        const bookedLaborSlot = document.createElement('div');
-        bookedLaborSlot.id = 'myapm-booked-labor-settings-slot';
-        grid.appendChild(bookedLaborSlot);
         setTimeout(() => {
             const slot = document.getElementById('myapm-booked-labor-settings-slot');
             if (!slot || slot.childElementCount > 0) return;
@@ -4926,7 +4902,7 @@
             grid.appendChild(createDueWindowRow(flowKey));
         });
 
-        panel.append(topRow, grid);
+        panel.append(topRow, topContent, grid);
         document.body.appendChild(panel);
 
         createReorderPanel();
