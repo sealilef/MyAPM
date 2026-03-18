@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.112_stable
+// @version      0.3.113_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.112_stable';
+    const CURRENT_VERSION = '0.3.113_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -822,6 +822,8 @@
 
         return '';
     }
+
+    window.__myApmGetPtpDescriptionForWorkOrder = getPtpDescriptionForWorkOrder;
 
     function getCompletedPtpEntriesForSettings() {
         const history = getPtpHistorySnapshot();
@@ -4667,6 +4669,7 @@
         window.addEventListener(PTP_HISTORY_EVENT_NAME, renderCompletedPtps);
         renderCompletedPtps();
 
+        card.refreshCompletedPtps = renderCompletedPtps;
         card.append(title, completedBody);
         return card;
     }
@@ -4679,7 +4682,14 @@
     function toggleSettingsPanel() {
         const panel = document.getElementById(SETTINGS_PANEL_ID);
         if (!panel) return;
-        panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        const nextVisible = panel.style.display === 'none';
+        panel.style.display = nextVisible ? 'flex' : 'none';
+        if (nextVisible) {
+            const ptpCard = panel.querySelector('.myapm-settings-card-ptp');
+            if (ptpCard && typeof ptpCard.refreshCompletedPtps === 'function') {
+                ptpCard.refreshCompletedPtps();
+            }
+        }
     }
 
     function createSettingsPanel() {
@@ -5512,7 +5522,14 @@
     if (!wo) return;
     const history = getPtpHistory();
     const existing = history[wo] && typeof history[wo] === 'object' ? history[wo] : {};
-    const description = String(extra && extra.description || existing.description || '').trim();
+    let description = String(extra && extra.description || existing.description || '').trim();
+    if (!description) {
+      try {
+        if (typeof window.__myApmGetPtpDescriptionForWorkOrder === 'function') {
+          description = String(window.__myApmGetPtpDescriptionForWorkOrder(wo) || '').trim();
+        }
+      } catch (_) {}
+    }
     history[wo] = {
       status: String(status || 'COMPLETE').toUpperCase(),
       time: Date.now(),
