@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.99_stable
+// @version      0.3.100_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
 // @match        https://eu1.eam.hxgnsmartcloud.com/*
 // @match        https://*.apm-es.gps.amazon.dev/*
 // @match        https://*.insights.amazon.dev/*
+// @match        https://github.com/sealilef/MyAPM/*
 // @homepageURL  https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js
 // @supportURL   https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js
 // @updateURL    https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js
@@ -25,10 +26,11 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.99_stable';
+    const CURRENT_VERSION = '0.3.100_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
-    const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/raw/refs/heads/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
+    const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
+    const SCRIPT_BLOB_PATH = '/sealilef/MyAPM/blob/main/Stable Branch/MyAPM_v0.3_stable.user.js';
 
     const POLL_MS = 100;
     const NAV_TIMEOUT_MS = 15000;
@@ -37,6 +39,42 @@
     const LINKIFY_INTERVAL_MS = 1500;
     const UPDATE_CHECK_RETRY_MS = 4000;
     const UPDATE_CHECK_MAX_ATTEMPTS = 3;
+
+    function isGithubScriptPage() {
+        return location.hostname === 'github.com' && decodeURIComponent(location.pathname) === SCRIPT_BLOB_PATH;
+    }
+
+    function maybeAutoClickGithubRaw() {
+        if (!isGithubScriptPage()) return false;
+        if (new URLSearchParams(location.search).get('myapm_autoraw') !== '1') return true;
+
+        const clickRaw = () => {
+            const links = Array.from(document.querySelectorAll('a[href], button'));
+            const target = links.find((el) => {
+                const text = String(el.textContent || '').trim();
+                const href = typeof el.getAttribute === 'function' ? String(el.getAttribute('href') || '') : '';
+                return text === 'Raw' || href.includes('/raw/refs/heads/main/Stable%20Branch/MyAPM_v0.3_stable.user.js');
+            });
+            if (!target) return false;
+            try {
+                target.click();
+                return true;
+            } catch (_) {
+                return false;
+            }
+        };
+
+        if (clickRaw()) return true;
+        const observer = new MutationObserver(() => {
+            if (!clickRaw()) return;
+            observer.disconnect();
+        });
+        observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+        setTimeout(() => observer.disconnect(), 10000);
+        return true;
+    }
+
+    if (maybeAutoClickGithubRaw()) return;
 
     const GRID_RESIZE_REQUEST_KEY = 'myapm_force_grid_resize_request';
     const GRID_RESIZE_RETRY_MS = 700;
@@ -328,7 +366,7 @@
 
     function buildInstallScriptUrl() {
         const separator = SCRIPT_PAGE_URL.includes('?') ? '&' : '?';
-        return `${SCRIPT_PAGE_URL}${separator}myapm_install_refresh=${Date.now()}`;
+        return `${SCRIPT_PAGE_URL}${separator}myapm_autoraw=1&myapm_install_refresh=${Date.now()}`;
     }
 
     function scheduleScriptUpdateRetry(nextAttempt) {
@@ -4836,6 +4874,7 @@
   'use strict';
 
   if (window.self !== window.top) return;
+  if (location.hostname === 'github.com') return;
   const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
   const IDS = {
@@ -5170,6 +5209,7 @@
    PTP TIMER + CLOSING COMMENTS COUNTER PORT
 --------------------------------------------------*/
 (function() {
+  if (location.hostname === 'github.com') return;
   const PTP_MSG_TAG = '__myApmPtpMsgV1';
   const PTP_PARENT_TIMER_ID = 'ptp-timer';
   const PTP_PARENT_STYLE_ID = 'myapm-ptp-pulse-style';
