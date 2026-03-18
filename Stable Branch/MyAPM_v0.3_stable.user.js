@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.101_stable
+// @version      0.3.102_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.101_stable';
+    const CURRENT_VERSION = '0.3.102_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -2829,7 +2829,7 @@
         root.innerHTML = `
             <style>
                 .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: rgba(5,10,18,0.58); display: flex; align-items: center; justify-content: center; padding: 18px; }
-                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 10px 0 0 10px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 12px 10px; font: 700 12px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 12px 0 0 12px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
                 .showTab:hover { background: rgba(20, 34, 56, 0.98); }
                 .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1420px, calc(100vw - 50px)); max-height: calc(100vh - 90px); display: flex; flex-direction: column; background: rgb(10, 18, 30); color: #eaf0ff; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; box-shadow: 0 10px 35px rgba(0,0,0,0.55); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow: hidden; }
                 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); background: transparent; cursor: move; user-select: none; }
@@ -3294,7 +3294,7 @@
         root.innerHTML = `
             <style>
                 .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: rgba(5,10,18,0.58); display: flex; align-items: center; justify-content: center; padding: 18px; }
-                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 10px 0 0 10px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 12px 10px; font: 700 12px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 12px 0 0 12px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
                 .showTab:hover { background: rgba(20, 34, 56, 0.98); }
                 .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1320px, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: linear-gradient(to bottom, #1a2534, #111926); color: #d6deee; border: 1px solid #304258; border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,0.45); font: 13px/1.4 Arial, Helvetica, sans-serif; overflow: hidden; }
                 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); background: transparent; cursor: move; user-select: none; }
