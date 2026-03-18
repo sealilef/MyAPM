@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.120_stable
+// @version      0.3.121_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.120_stable';
+    const CURRENT_VERSION = '0.3.121_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -833,9 +833,10 @@
                 wo: cleanText(wo),
                 status: String(entry && entry.status || '').toUpperCase(),
                 time: Number(entry && entry.time || 0),
-                description: cleanText(entry && entry.description || '')
+                description: cleanText(entry && entry.description || ''),
+                raw: entry
             };
-        }).filter((entry) => entry.wo && entry.status === 'COMPLETE')
+        }).filter((entry) => entry.wo && isPtpCompletionStillValid(entry.raw))
             .sort((a, b) => (b.time || 0) - (a.time || 0));
     }
 
@@ -4637,7 +4638,7 @@
         const renderCompletedPtps = () => {
             const entries = getCompletedPtpEntriesForSettings().slice(0, 25);
             if (!entries.length) {
-                completedBody.innerHTML = '<div style="color:#9fb0c4; font-size:12px;">No completed PTPs stored.</div>';
+                completedBody.innerHTML = '<div style="color:#9fb0c4; font-size:12px;">No completed PTPs within the last 12 hours.</div>';
                 return;
             }
             completedBody.innerHTML = `
