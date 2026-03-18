@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.117_stable
+// @version      0.3.118_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.117_stable';
+    const CURRENT_VERSION = '0.3.118_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -5435,6 +5435,7 @@
   const PTP_COUNTDOWN_SECONDS = 120;
   const PTP_SHARED_HISTORY_KEY = 'myapm_shared_ptp_history_v1';
   const PTP_LOCAL_HISTORY_KEY = 'apm_ptp_history';
+  const PTP_PENDING_DESCRIPTION_KEY = 'myapm_ptp_pending_description_v1';
 
   function ptpEnabled() {
     return localStorage.getItem('apmPTPTimer') !== 'false';
@@ -5475,6 +5476,43 @@
     } catch (_) {
       return {};
     }
+  }
+
+  function readPendingPtpDescriptions() {
+    try {
+      return JSON.parse(localStorage.getItem(PTP_PENDING_DESCRIPTION_KEY) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function writePendingPtpDescriptions(map) {
+    try { localStorage.setItem(PTP_PENDING_DESCRIPTION_KEY, JSON.stringify(map || {})); } catch (_) {}
+  }
+
+  function setPendingPtpDescription(woNumber, description) {
+    const wo = String(woNumber || '').trim();
+    const desc = String(description || '').trim();
+    if (!wo || !desc) return;
+    const map = readPendingPtpDescriptions();
+    map[wo] = desc;
+    writePendingPtpDescriptions(map);
+  }
+
+  function getPendingPtpDescription(woNumber) {
+    const wo = String(woNumber || '').trim();
+    if (!wo) return '';
+    const map = readPendingPtpDescriptions();
+    return String(map[wo] || '').trim();
+  }
+
+  function clearPendingPtpDescription(woNumber) {
+    const wo = String(woNumber || '').trim();
+    if (!wo) return;
+    const map = readPendingPtpDescriptions();
+    if (!(wo in map)) return;
+    delete map[wo];
+    writePendingPtpDescriptions(map);
   }
 
   function dispatchPtpHistoryUpdated(detail) {
@@ -5524,6 +5562,9 @@
     const existing = history[wo] && typeof history[wo] === 'object' ? history[wo] : {};
     let description = String(extra && extra.description || existing.description || '').trim();
     if (!description) {
+      description = getPendingPtpDescription(wo);
+    }
+    if (!description) {
       try {
         if (typeof window.__myApmGetPtpDescriptionForWorkOrder === 'function') {
           description = String(window.__myApmGetPtpDescriptionForWorkOrder(wo) || '').trim();
@@ -5538,6 +5579,7 @@
     const serialized = JSON.stringify(history);
     writeSharedValue(PTP_SHARED_HISTORY_KEY, serialized);
     try { localStorage.setItem(PTP_LOCAL_HISTORY_KEY, serialized); } catch (_) {}
+    if (description) clearPendingPtpDescription(wo);
     dispatchPtpHistoryUpdated({ wo, data: history[wo] });
   }
 
@@ -6011,6 +6053,12 @@
       relayPtpMessage(type, extra);
     }
 
+    function syncPendingPtpDescription() {
+      if (currentPtpWo && currentPtpDescription) {
+        setPendingPtpDescription(currentPtpWo, currentPtpDescription);
+      }
+    }
+
     function resolvePtpDescription(url, requestBody, responseObj) {
       const candidates = [String(url || ''), String(location.href || '')];
       for (const candidate of candidates) {
@@ -6084,6 +6132,7 @@
         const resolvedDescription = resolvePtpDescription(url, requestBody, null) || '';
         currentPtpWo = resolvedFromUrl || currentPtpWo;
         currentPtpDescription = resolvedDescription || currentPtpDescription;
+        syncPendingPtpDescription();
         logBridge('handleAssessmentResponse:start', {
           url,
           status,
@@ -6111,6 +6160,7 @@
           completionFired = false;
           currentPtpWo = resolveWoNumber(url, requestBody, null) || currentPtpWo;
           currentPtpDescription = resolvePtpDescription(url, requestBody, null) || currentPtpDescription;
+          syncPendingPtpDescription();
           logBridge('handleAssessmentResponse:create_assessment success', {
             url,
             status,
@@ -6133,10 +6183,13 @@
         }
         const res = JSON.parse(text);
         currentPtpWo = resolveWoNumber(url, requestBody, res) || currentPtpWo;
+        currentPtpDescription = resolvePtpDescription(url, requestBody, res) || currentPtpDescription;
+        syncPendingPtpDescription();
         logBridge('handleAssessmentResponse:parsed', {
           url,
           status,
           currentPtpWo,
+          currentPtpDescription,
           completionFired,
           hasBody: !!(res && res.body),
           assessmentStatus: res && res.body && res.body.assessment ? String(res.body.assessment.AssessmentStatus || '') : '',
@@ -6299,6 +6352,7 @@
     setInterval(heartbeat, 8000);
     currentPtpWo = resolveWoNumber(location.href, null, null) || currentPtpWo;
     currentPtpDescription = resolvePtpDescription(location.href, null, null) || currentPtpDescription;
+    syncPendingPtpDescription();
     logBridge('bridge initialized', { href: location.href, currentPtpWo, currentPtpDescription, completionFired });
     heartbeat();
 
