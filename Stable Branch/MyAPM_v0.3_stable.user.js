@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.119_stable
+// @version      0.3.120_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.119_stable';
+    const CURRENT_VERSION = '0.3.120_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -927,6 +927,11 @@
         if (!workOrder) return '';
         const site = cleanText(getPtpSiteCandidate());
         const simTitle = cleanText(description);
+        try {
+            if (simTitle && typeof window.__myApmRememberPendingPtpDescription === 'function') {
+                window.__myApmRememberPendingPtpDescription(workOrder, simTitle);
+            }
+        } catch (_) {}
         const params = new URLSearchParams();
         params.set('workordernum', workOrder);
         if (site || simTitle) {
@@ -5480,14 +5485,16 @@
 
   function readPendingPtpDescriptions() {
     try {
-      return JSON.parse(localStorage.getItem(PTP_PENDING_DESCRIPTION_KEY) || '{}') || {};
+      return parsePtpHistoryValue(readSharedValue(PTP_PENDING_DESCRIPTION_KEY, '{}'));
     } catch (_) {
       return {};
     }
   }
 
   function writePendingPtpDescriptions(map) {
-    try { localStorage.setItem(PTP_PENDING_DESCRIPTION_KEY, JSON.stringify(map || {})); } catch (_) {}
+    try {
+      writeSharedValue(PTP_PENDING_DESCRIPTION_KEY, JSON.stringify(map || {}));
+    } catch (_) {}
   }
 
   function setPendingPtpDescription(woNumber, description) {
@@ -5514,6 +5521,8 @@
     delete map[wo];
     writePendingPtpDescriptions(map);
   }
+
+  window.__myApmRememberPendingPtpDescription = setPendingPtpDescription;
 
   function dispatchPtpHistoryUpdated(detail) {
     try { window.dispatchEvent(new CustomEvent('MYAPM_PTP_HISTORY_UPDATED', { detail })); } catch (_) {}
