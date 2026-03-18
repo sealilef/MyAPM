@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.110_stable
+// @version      0.3.111_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.110_stable';
+    const CURRENT_VERSION = '0.3.111_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -5536,7 +5536,7 @@
     if (!wo) return;
     const history = getPtpHistory();
     const existing = history[wo] && typeof history[wo] === 'object' ? history[wo] : {};
-    const description = cleanText(extra && extra.description || getPtpDescriptionForWorkOrder(wo) || existing.description || '');
+    const description = String(extra && extra.description || existing.description || '').trim();
     history[wo] = {
       status: String(status || 'COMPLETE').toUpperCase(),
       time: Date.now(),
