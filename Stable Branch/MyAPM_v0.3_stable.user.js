@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.105_stable
+// @version      0.3.106_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.105_stable';
+    const CURRENT_VERSION = '0.3.106_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -943,6 +943,17 @@
     function refreshPtpDecorations() {
         refreshPtpGridBadges();
         refreshPtpHeaderBadge();
+    }
+
+    function refreshResultsModalPtpBadges() {
+        const root = getResultsModalRoot();
+        if (!root) return;
+        const history = getPtpHistorySnapshot();
+        root.querySelectorAll('.myapm-wo-inline-wrap[data-wo-num]').forEach((wrap) => {
+            const woNumber = cleanText(wrap.getAttribute('data-wo-num') || '');
+            const description = cleanText(wrap.getAttribute('data-wo-desc') || '');
+            upsertPtpBadge(wrap, woNumber, history[woNumber], { showPending: true, description });
+        });
     }
 
     function getVisibleGridComponents() {
@@ -2600,7 +2611,7 @@
             : `Open Work Order ${escapeHtml(label)} in a New Tab`;
         const ptpBadgeHtml = buildModalPtpBadgeHtml(row);
         return `
-            <span class="myapm-wo-inline-wrap">
+            <span class="myapm-wo-inline-wrap" data-wo-num="${escapeHtml(row.workOrder || row.audit || '')}" data-wo-desc="${escapeHtml(row.description || '')}">
                 ${ptpBadgeHtml}
                 <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="myapm-wo-link" title="${openTitle}">${escapeHtml(label)}</a>
                 <button type="button" class="myapm-copy-btn" data-copy-url="${escapeHtml(href)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
@@ -3021,6 +3032,7 @@
                 }
             });
         });
+        refreshResultsModalPtpBadges();
     }
 
     function linkifyWorkorderNumbers() {
@@ -3489,6 +3501,7 @@
                 }
             });
         });
+        refreshResultsModalPtpBadges();
     }
 
     async function onMyShiftClick() {
@@ -4891,6 +4904,7 @@
 
     window.addEventListener(PTP_HISTORY_EVENT_NAME, () => {
         refreshPtpDecorations();
+        refreshResultsModalPtpBadges();
         ensureReasonableWorkOrderColumnWidth();
     });
 
