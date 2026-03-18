@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.107_stable
+// @version      0.3.108_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.107_stable';
+    const CURRENT_VERSION = '0.3.108_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -741,6 +741,55 @@
         } catch (_) {
             return {};
         }
+    }
+
+    function getPtpDescriptionForWorkOrder(woNumber) {
+        const target = cleanText(woNumber);
+        if (!target) return '';
+
+        const docs = [];
+        try {
+            if (window.top && window.top.document) docs.push(window.top.document);
+        } catch (_) {}
+        try {
+            if (document && !docs.includes(document)) docs.push(document);
+        } catch (_) {}
+
+        for (const doc of docs) {
+            try {
+                const matched = Array.from(doc.querySelectorAll('[data-wo-num][data-wo-desc]')).find((el) => cleanText(el.getAttribute('data-wo-num') || '') === target);
+                const description = cleanText(matched && matched.getAttribute('data-wo-desc') || '');
+                if (description) return description;
+            } catch (_) {}
+        }
+
+        try {
+            const ctx = getActiveAPMContext();
+            const headerInner = getActiveModuleHeaderInner(ctx);
+            const code = headerInner && headerInner.querySelector ? headerInner.querySelector('span.recordcode') : null;
+            const desc = headerInner && headerInner.querySelector ? headerInner.querySelector('span.recorddesc') : null;
+            const woMatch = String(code && code.textContent || '').match(/\b\d{6,}\b/);
+            if (woMatch && woMatch[0] === target) {
+                const description = cleanText(desc && desc.textContent || '');
+                if (description) return description;
+            }
+        } catch (_) {}
+
+        return '';
+    }
+
+    function getCompletedPtpEntriesForSettings() {
+        const history = getPtpHistorySnapshot();
+        return Object.keys(history || {}).map((wo) => {
+            const entry = history[wo];
+            return {
+                wo: cleanText(wo),
+                status: String(entry && entry.status || '').toUpperCase(),
+                time: Number(entry && entry.time || 0),
+                description: cleanText(entry && entry.description || '')
+            };
+        }).filter((entry) => entry.wo && entry.status === 'COMPLETE')
+            .sort((a, b) => (b.time || 0) - (a.time || 0));
     }
 
     function getPtpSiteCandidate() {
@@ -4571,8 +4620,69 @@
             showToast(enabled ? 'PTP status icons enabled.' : 'PTP status icons disabled.', 'success');
         });
 
+        const completedWrap = document.createElement('div');
+        Object.assign(completedWrap.style, {
+            marginTop: '2px',
+            padding: '12px',
+            borderRadius: '12px',
+            background: 'rgba(7, 15, 26, 0.35)',
+            border: '1px solid rgba(88,118,156,0.35)'
+        });
+
+        const completedTitle = document.createElement('div');
+        completedTitle.textContent = 'Completed PTPs';
+        Object.assign(completedTitle.style, {
+            fontSize: '13px',
+            fontWeight: '700',
+            color: '#dce7f7',
+            marginBottom: '10px'
+        });
+
+        const completedBody = document.createElement('div');
+
+        const renderCompletedPtps = () => {
+            const entries = getCompletedPtpEntriesForSettings().slice(0, 25);
+            if (!entries.length) {
+                completedBody.innerHTML = '<div style="color:#9fb0c4; font-size:12px;">No completed PTPs stored.</div>';
+                return;
+            }
+            completedBody.innerHTML = `
+                <div style="max-height:220px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
+                    <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px;">
+                        <thead>
+                            <tr>
+                                <th style="position:sticky; top:0; background:#0f1723; color:#eaf0ff; text-align:left; padding:8px; border-bottom:1px solid #304258; width:180px;">Record</th>
+                                <th style="position:sticky; top:0; background:#0f1723; color:#eaf0ff; text-align:left; padding:8px; border-bottom:1px solid #304258;">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${entries.map((entry) => `
+                                <tr>
+                                    <td style="padding:8px; border-bottom:1px solid rgba(61,82,109,0.6); vertical-align:top; white-space:nowrap;">
+                                        <span class="myapm-wo-inline-wrap" data-wo-num="${escapeHtml(entry.wo)}" data-wo-desc="${escapeHtml(entry.description)}">
+                                            <a href="${escapeHtml(buildWorkOrderUrl(entry.wo, 'WSJOBS'))}" target="_blank" rel="noopener noreferrer" class="myapm-wo-link" style="color:#7fb7ff; text-decoration:underline; font-weight:700;">${escapeHtml(entry.wo)}</a>
+                                        </span>
+                                    </td>
+                                    <td style="padding:8px; border-bottom:1px solid rgba(61,82,109,0.6); vertical-align:top; color:#d6deee;">${escapeHtml(entry.description || '—')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            const history = getPtpHistorySnapshot();
+            completedBody.querySelectorAll('.myapm-wo-inline-wrap[data-wo-num]').forEach((wrap) => {
+                const woNumber = cleanText(wrap.getAttribute('data-wo-num') || '');
+                const description = cleanText(wrap.getAttribute('data-wo-desc') || '');
+                upsertPtpBadge(wrap, woNumber, history[woNumber], { showPending: true, description });
+            });
+        };
+
+        window.addEventListener(PTP_HISTORY_EVENT_NAME, renderCompletedPtps);
+        renderCompletedPtps();
+
         statusRow.append(statusLeft, statusInput);
-        card.append(title, toggleRow, statusRow);
+        completedWrap.append(completedTitle, completedBody);
+        card.append(title, toggleRow, statusRow, completedWrap);
         return card;
     }
 
@@ -5351,11 +5461,17 @@
     return history;
   }
 
-  function updatePtpHistory(woNumber, status) {
+  function updatePtpHistory(woNumber, status, extra = {}) {
     const wo = String(woNumber || '').trim();
     if (!wo) return;
     const history = getPtpHistory();
-    history[wo] = { status: String(status || 'COMPLETE').toUpperCase(), time: Date.now() };
+    const existing = history[wo] && typeof history[wo] === 'object' ? history[wo] : {};
+    const description = cleanText(extra && extra.description || getPtpDescriptionForWorkOrder(wo) || existing.description || '');
+    history[wo] = {
+      status: String(status || 'COMPLETE').toUpperCase(),
+      time: Date.now(),
+      description
+    };
     const serialized = JSON.stringify(history);
     writeSharedValue(PTP_SHARED_HISTORY_KEY, serialized);
     try { localStorage.setItem(PTP_LOCAL_HISTORY_KEY, serialized); } catch (_) {}
