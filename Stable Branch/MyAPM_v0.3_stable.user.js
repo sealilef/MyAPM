@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.100_stable
+// @version      0.3.101_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.100_stable';
+    const CURRENT_VERSION = '0.3.101_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -2885,7 +2885,7 @@
                             <div class="windowPill">Due window: ${escapeHtml(dueWindowLabel)}</div>
                         </div>
                         <div class="actions">
-                            <button type="button" class="actionBtn" data-action="assigned-to-me">My PMs</button>
+                            <button type="button" class="actionBtn" data-action="assigned-to-me">Assigned to me</button>
                             <input type="text" class="assignedUserInput" data-role="assigned-user-input" name="assignee-filter" placeholder="Assigned to:" aria-label="Assigned to filter" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true">
                             <button type="button" class="actionBtn" data-action="copy-summary">Copy Summary</button>
                             <button type="button" class="actionBtn" data-action="hide">Hide</button>
@@ -3350,7 +3350,7 @@
                             <div class="subtitle">${totalCount} ${totalCount === 1 ? 'Record Found' : 'Records Found'}</div>
                         </div>
                         <div class="actions">
-                            <button type="button" class="actionBtn" data-action="assigned-to-me">My PMs</button>
+                            <button type="button" class="actionBtn" data-action="assigned-to-me">Assigned to me</button>
                             <input type="text" class="assignedUserInput" data-role="assigned-user-input" name="assignee-filter" placeholder="Assigned to:" aria-label="Assigned to filter" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true">
                             <button type="button" class="actionBtn" data-action="copy-summary">Copy Summary</button>
                             <button type="button" class="actionBtn" data-action="hide">Hide</button>
