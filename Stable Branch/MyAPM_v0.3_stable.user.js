@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.109_stable
+// @version      0.3.110_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.109_stable';
+    const CURRENT_VERSION = '0.3.110_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4564,6 +4564,7 @@
             display: 'flex',
             flexDirection: 'column',
             gap: '12px',
+            minHeight: '100%',
             padding: '16px',
             background: 'linear-gradient(180deg, rgba(28,43,64,0.96), rgba(17,27,40,0.96))',
             border: '1px solid rgba(88,118,156,0.45)',
@@ -4572,13 +4573,21 @@
         });
 
         const title = document.createElement('div');
-        title.textContent = 'PTP Timer';
+        title.textContent = 'PTP Info';
         Object.assign(title.style, {
             margin: '0',
             fontSize: '15px',
             fontWeight: '700',
             color: '#f3f7ff',
             letterSpacing: '0.2px'
+        });
+
+        const controlsRow = document.createElement('div');
+        Object.assign(controlsRow.style, {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: '12px',
+            alignItems: 'stretch'
         });
 
         const toggleRow = document.createElement('label');
@@ -4591,11 +4600,12 @@
             borderRadius: '12px',
             background: 'rgba(7, 15, 26, 0.35)',
             border: '1px solid rgba(88,118,156,0.35)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            minWidth: '0'
         });
 
         const left = document.createElement('span');
-        left.textContent = 'Enabled';
+        left.textContent = 'PTP Timer';
         Object.assign(left.style, {
             fontSize: '13px',
             fontWeight: '700',
@@ -4639,7 +4649,8 @@
             borderRadius: '12px',
             background: 'rgba(7, 15, 26, 0.35)',
             border: '1px solid rgba(88,118,156,0.35)',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            minWidth: '0'
         });
 
         const statusLeft = document.createElement('span');
@@ -4667,11 +4678,15 @@
 
         const completedWrap = document.createElement('div');
         Object.assign(completedWrap.style, {
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1 1 auto',
             marginTop: '2px',
             padding: '12px',
             borderRadius: '12px',
             background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)'
+            border: '1px solid rgba(88,118,156,0.35)',
+            minHeight: '280px'
         });
 
         const completedTitle = document.createElement('div');
@@ -4684,6 +4699,10 @@
         });
 
         const completedBody = document.createElement('div');
+        Object.assign(completedBody.style, {
+            flex: '1 1 auto',
+            minHeight: '0'
+        });
 
         const renderCompletedPtps = () => {
             const entries = getCompletedPtpEntriesForSettings().slice(0, 25);
@@ -4692,7 +4711,7 @@
                 return;
             }
             completedBody.innerHTML = `
-                <div style="max-height:220px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
+                <div style="height:100%; min-height:220px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
                     <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px;">
                         <thead>
                             <tr>
@@ -4726,8 +4745,9 @@
         renderCompletedPtps();
 
         statusRow.append(statusLeft, statusInput);
+        controlsRow.append(toggleRow, statusRow);
         completedWrap.append(completedTitle, completedBody);
-        card.append(title, toggleRow, statusRow, completedWrap);
+        card.append(title, controlsRow, completedWrap);
         return card;
     }
 
