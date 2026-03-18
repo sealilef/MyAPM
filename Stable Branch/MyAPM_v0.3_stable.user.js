@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.104_stable
+// @version      0.3.105_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.104_stable';
+    const CURRENT_VERSION = '0.3.105_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4659,7 +4659,7 @@
         helpLink.rel = 'noopener noreferrer';
         helpLink.textContent = 'Help';
         Object.assign(helpLink.style, {
-            color: '#0000EE',
+            color: '#4da3ff',
             fontSize: '12px',
             fontWeight: '600',
             textDecoration: 'underline',
@@ -4672,7 +4672,7 @@
         feedbackLink.rel = 'noopener noreferrer';
         feedbackLink.textContent = 'Bug Report / Feature Request';
         Object.assign(feedbackLink.style, {
-            color: '#0000EE',
+            color: '#4da3ff',
             fontSize: '12px',
             fontWeight: '600',
             textDecoration: 'underline',
