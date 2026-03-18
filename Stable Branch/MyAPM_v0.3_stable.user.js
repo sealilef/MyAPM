@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.106_stable
+// @version      0.3.107_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.106_stable';
+    const CURRENT_VERSION = '0.3.107_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4866,6 +4866,7 @@
             linkifyWorkorderNumbers();
             ensureActiveRecordHeaderUi();
             refreshPtpDecorations();
+            refreshResultsModalPtpBadges();
             ensureReasonableWorkOrderColumnWidth();
             const pendingResize = peekGridResizeRequest(45000);
             if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'interval', 2, 500);
@@ -4878,12 +4879,14 @@
     window.addEventListener('pageshow', () => {
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'pageshow', GRID_RESIZE_RETRY_COUNT + 4, 500);
+        refreshResultsModalPtpBadges();
         ensureReasonableWorkOrderColumnWidth();
     });
 
     window.addEventListener('focus', () => {
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'focus', 6, 400);
+        refreshResultsModalPtpBadges();
         ensureReasonableWorkOrderColumnWidth();
     });
 
