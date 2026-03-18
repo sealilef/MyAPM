@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.108_stable
+// @version      0.3.109_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.108_stable';
+    const CURRENT_VERSION = '0.3.109_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -319,6 +319,51 @@
                 toast.style.opacity = '0';
             }, 1800);
         } catch (_) {}
+    }
+
+    function isVisibleElement(el) {
+        if (!el) return false;
+        try {
+            const style = el.ownerDocument.defaultView.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function dismissTransientInfoDialogs() {
+        const docs = [];
+        try {
+            if (window.top && window.top.document) docs.push(window.top.document);
+        } catch (_) {}
+        try {
+            if (document && !docs.includes(document)) docs.push(document);
+        } catch (_) {}
+
+        docs.forEach((doc) => {
+            try {
+                const rows = Array.from(doc.querySelectorAll('.eam-mb-item'));
+                rows.forEach((row) => {
+                    if (!isVisibleElement(row)) return;
+                    const dialogRoot = row.closest('.x-window, .x-message-box') || row.parentElement;
+                    if (!dialogRoot || dialogRoot.dataset.myapmAutoDismissed === 'true') return;
+                    const isInfo = !!row.querySelector('.ext-mb-info');
+                    if (!isInfo) return;
+                    const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, button, [role="button"]')).filter(isVisibleElement);
+                    const labels = buttons.map((el) => cleanText(el.textContent || '')).filter(Boolean);
+                    if (!labels.length || !labels.every((label) => label === 'OK' || label === 'More')) return;
+                    const okButton = buttons.find((el) => cleanText(el.textContent || '') === 'OK');
+                    if (!okButton) return;
+                    dialogRoot.dataset.myapmAutoDismissed = 'true';
+                    try {
+                        if (typeof okButton.click === 'function') okButton.click();
+                        else dialogRoot.style.display = 'none';
+                    } catch (_) {
+                        dialogRoot.style.display = 'none';
+                    }
+                });
+            } catch (_) {}
+        });
     }
 
     const updateListeners = [];
@@ -4964,6 +5009,7 @@
         linkifyWorkorderNumbers();
         ensureActiveRecordHeaderUi();
         refreshPtpDecorations();
+        dismissTransientInfoDialogs();
         const resizedAtBootstrap = ensureReasonableWorkOrderColumnWidth();
         ensureGridResizeObserver();
         const pendingGridResize = peekGridResizeRequest(45000);
@@ -4977,6 +5023,7 @@
             ensureActiveRecordHeaderUi();
             refreshPtpDecorations();
             refreshResultsModalPtpBadges();
+            dismissTransientInfoDialogs();
             ensureReasonableWorkOrderColumnWidth();
             const pendingResize = peekGridResizeRequest(45000);
             if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'interval', 2, 500);
@@ -4990,6 +5037,7 @@
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'pageshow', GRID_RESIZE_RETRY_COUNT + 4, 500);
         refreshResultsModalPtpBadges();
+        dismissTransientInfoDialogs();
         ensureReasonableWorkOrderColumnWidth();
     });
 
@@ -4997,6 +5045,7 @@
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'focus', 6, 400);
         refreshResultsModalPtpBadges();
+        dismissTransientInfoDialogs();
         ensureReasonableWorkOrderColumnWidth();
     });
 
@@ -5007,6 +5056,7 @@
         gridResizeObserver = new MutationObserver(() => {
             clearTimeout(timer);
             timer = setTimeout(() => {
+                dismissTransientInfoDialogs();
                 ensureReasonableWorkOrderColumnWidth();
             }, 120);
         });
