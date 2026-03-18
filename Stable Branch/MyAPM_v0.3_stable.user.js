@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.113_stable
+// @version      0.3.114_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.113_stable';
+    const CURRENT_VERSION = '0.3.114_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -6002,12 +6002,30 @@
 
     let completionFired = false;
     let currentPtpWo = '';
+    let currentPtpDescription = '';
     const standaloneTimer = createStandalonePtpTimer();
     function logBridge() {}
 
     function post(type, extra) {
       logBridge('postMessage', { type, extra: extra || null, href: location.href, currentPtpWo, completionFired });
       relayPtpMessage(type, extra);
+    }
+
+    function resolvePtpDescription(url, requestBody, responseObj) {
+      const candidates = [String(url || ''), String(location.href || '')];
+      for (const candidate of candidates) {
+        try {
+          const parsed = new URL(candidate, location.origin);
+          const organization = cleanText(parsed.searchParams.get('organization') || '');
+          if (!organization) continue;
+          const commaIndex = organization.indexOf(',');
+          if (commaIndex > -1) {
+            const description = cleanText(organization.slice(commaIndex + 1));
+            if (description) return description;
+          }
+        } catch (_) {}
+      }
+      return '';
     }
 
     function triggerStart() {
@@ -6018,9 +6036,9 @@
     }
 
     function triggerCancel(woNumber) {
-      const payload = woNumber ? { wo: String(woNumber) } : {};
+      const payload = woNumber ? { wo: String(woNumber), description: currentPtpDescription } : {};
       logBridge('triggerCancel', { woNumber: woNumber || '', payload, currentPtpWo, completionFired });
-      if (payload.wo) updatePtpHistory(payload.wo, 'CANCELLED');
+      if (payload.wo) updatePtpHistory(payload.wo, 'CANCELLED', { description: currentPtpDescription });
       standaloneTimer.reset();
       post('MYAPM_PTP_HEARTBEAT', { visible: false, url: location.href });
     }
@@ -6032,13 +6050,13 @@
       }
       logBridge('triggerCompletion', { woNumber: woNumber || '', currentPtpWo, completionFired });
       completionFired = true;
-      if (woNumber) updatePtpHistory(woNumber, 'COMPLETE');
+      if (woNumber) updatePtpHistory(woNumber, 'COMPLETE', { description: currentPtpDescription });
       standaloneTimer.reset();
     }
 
     function triggerIncomplete(woNumber) {
       logBridge('triggerIncomplete', { woNumber: woNumber || '', currentPtpWo, completionFired });
-      if (woNumber) updatePtpHistory(woNumber, 'INCOMPLETE');
+      if (woNumber) updatePtpHistory(woNumber, 'INCOMPLETE', { description: currentPtpDescription });
     }
 
     function resolveWoNumber(url, requestBody, responseObj) {
@@ -6063,13 +6081,17 @@
       try {
         const previousWo = currentPtpWo;
         const resolvedFromUrl = resolveWoNumber(url, requestBody, null) || '';
+        const resolvedDescription = resolvePtpDescription(url, requestBody, null) || '';
         currentPtpWo = resolvedFromUrl || currentPtpWo;
+        currentPtpDescription = resolvedDescription || currentPtpDescription;
         logBridge('handleAssessmentResponse:start', {
           url,
           status,
           previousWo,
           resolvedFromUrl,
+          resolvedDescription,
           currentPtpWo,
+          currentPtpDescription,
           completionFired,
           textLength: String(text || '').length,
           bodyPreview: typeof requestBody === 'string' ? String(requestBody).slice(0, 300) : requestBody
@@ -6088,10 +6110,12 @@
         if (url.includes('create_assessment') && status === 200) {
           completionFired = false;
           currentPtpWo = resolveWoNumber(url, requestBody, null) || currentPtpWo;
+          currentPtpDescription = resolvePtpDescription(url, requestBody, null) || currentPtpDescription;
           logBridge('handleAssessmentResponse:create_assessment success', {
             url,
             status,
             currentPtpWo,
+            currentPtpDescription,
             completionFired
           });
           if (currentPtpWo) triggerIncomplete(currentPtpWo);
@@ -6274,7 +6298,8 @@
 
     setInterval(heartbeat, 8000);
     currentPtpWo = resolveWoNumber(location.href, null, null) || currentPtpWo;
-    logBridge('bridge initialized', { href: location.href, currentPtpWo, completionFired });
+    currentPtpDescription = resolvePtpDescription(location.href, null, null) || currentPtpDescription;
+    logBridge('bridge initialized', { href: location.href, currentPtpWo, currentPtpDescription, completionFired });
     heartbeat();
 
     window.__myApmPtpIframeBridgeBound = true;
