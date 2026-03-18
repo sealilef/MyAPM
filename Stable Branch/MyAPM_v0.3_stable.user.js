@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.102_stable
+// @version      0.3.103_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.102_stable';
+    const CURRENT_VERSION = '0.3.103_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -4645,6 +4645,48 @@
 
         intro.append(introTitle, introVersion);
 
+        const linkRow = document.createElement('div');
+        Object.assign(linkRow.style, {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap'
+        });
+
+        const helpLink = document.createElement('a');
+        helpLink.href = 'https://w.amazon.com/bin/view/MLB1-RME/MyAPM/';
+        helpLink.target = '_blank';
+        helpLink.rel = 'noopener noreferrer';
+        helpLink.textContent = 'Help';
+        Object.assign(helpLink.style, {
+            color: '#9fb0c4',
+            fontSize: '12px',
+            fontWeight: '600',
+            textDecoration: 'underline',
+            textUnderlineOffset: '2px'
+        });
+
+        const feedbackLink = document.createElement('a');
+        feedbackLink.href = 'https://amazon.enterprise.slack.com/archives/D068LM8KHMW';
+        feedbackLink.target = '_blank';
+        feedbackLink.rel = 'noopener noreferrer';
+        feedbackLink.textContent = 'Bug Report / Feature Request';
+        Object.assign(feedbackLink.style, {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px 10px',
+            borderRadius: '999px',
+            border: '1px solid rgba(88,118,156,0.45)',
+            background: 'rgba(255,255,255,0.05)',
+            color: '#c6d4ea',
+            fontSize: '12px',
+            fontWeight: '700',
+            textDecoration: 'none'
+        });
+
+        linkRow.append(helpLink, feedbackLink);
+
         const headingRow = document.createElement('div');
         Object.assign(headingRow.style, {
             display: 'flex',
@@ -4655,7 +4697,7 @@
         });
 
         headingRow.append(intro, createUpdateBanner());
-        titleWrap.append(headingRow);
+        titleWrap.append(headingRow, linkRow);
         topRow.append(titleWrap);
 
         const topActions = document.createElement('div');
