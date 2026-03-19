@@ -90,8 +90,8 @@
     const REORDER_PANEL_ID = 'myapm-reorder-panel';
     const REORDER_STORAGE_KEY = 'myapmLayoutOrderV1';
     const REORDER_BUTTON_ID = 'myapm-layout-reorder-button';
-    const WORKORDER_REGEX = /\b\d{11}\b/g;
-    const WORKORDER_PLAIN_REGEX = /\b\d{11}\b/;
+    const WORKORDER_ACTIVITY_REGEX = /\b(\d{11})(-\d+)?\b/g;
+    const WORKORDER_ACTIVITY_PLAIN_REGEX = /^\d{11}(?:-\d+)?$/;
     const PTP_HISTORY_STORAGE_KEY = 'apm_ptp_history';
     const PTP_LINK_BASE = 'https://user.sparsy.insights.amazon.dev/ptp';
     const PTP_HISTORY_EVENT_NAME = 'MYAPM_PTP_HISTORY_UPDATED';
@@ -3156,7 +3156,7 @@
             const signature = baseText;
             const hasInlineDecorations = !!el.querySelector('.apm-wo-inline-wrap, a.better-apm-workorder, .copy-btn');
             const currentCell = el.closest ? el.closest('.x-grid-cell') : null;
-            const hasWorkOrderText = WORKORDER_PLAIN_REGEX.test(signature) && /^\d{11}$/.test(signature);
+            const hasWorkOrderText = WORKORDER_ACTIVITY_PLAIN_REGEX.test(signature);
             if (el.dataset.workorderLinked === 'true'
                 && el.dataset.workorderLinkedKey === signature
                 && (!hasWorkOrderText || hasInlineDecorations)) {
@@ -3185,12 +3185,15 @@
 
             textNodes.forEach((textNode) => {
                 const text = textNode.textContent || '';
-                const matches = [...text.matchAll(WORKORDER_REGEX)];
+                const matches = [...text.matchAll(WORKORDER_ACTIVITY_REGEX)];
                 if (!matches.length) return;
                 const fragment = doc.createDocumentFragment();
                 let lastIndex = 0;
                 for (const match of matches) {
-                    const workOrder = match[0];
+                    const workOrder = match[1];
+                    const activitySuffix = match[2] || '';
+                    const isFollowUpActivityValue = !!activitySuffix;
+                    const displayValue = match[0];
                     const index = match.index || 0;
                     fragment.appendChild(doc.createTextNode(text.slice(lastIndex, index)));
                     const wrap = doc.createElement('span');
@@ -3211,11 +3214,15 @@
 
                     const link = doc.createElement('a');
                     link.className = 'better-apm-workorder';
-                    link.href = auditMode ? buildAuditUrl(workOrder, workOrder) : buildWorkOrderUrl(workOrder, (ctx && ctx.screen && ctx.screen.getUserFunction && ctx.screen.getUserFunction()) || 'WSJOBS');
+                    link.href = (auditMode && !isFollowUpActivityValue)
+                        ? buildAuditUrl(workOrder, workOrder)
+                        : buildWorkOrderUrl(workOrder, (ctx && ctx.screen && ctx.screen.getUserFunction && ctx.screen.getUserFunction()) || 'WSJOBS');
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    link.textContent = workOrder;
-                    link.title = auditMode ? `Open Audit ${workOrder} in a New Tab` : `Open Work Order ${workOrder} in a New Tab`;
+                    link.textContent = displayValue;
+                    link.title = (auditMode && !isFollowUpActivityValue)
+                        ? `Open Audit ${workOrder} in a New Tab`
+                        : `Open Work Order ${workOrder} in a New Tab`;
                     Object.assign(link.style, { color: '#2196F3', textDecoration: 'underline', fontWeight: '600', flexShrink: '0' });
                     link.addEventListener('click', () => {
                         requestGridResize(auditMode ? 'audit-link-open' : 'workorder-link-open');
@@ -3225,7 +3232,7 @@
                     const copyBtn = doc.createElement('button');
                     copyBtn.className = 'copy-btn';
                     copyBtn.type = 'button';
-                    copyBtn.title = auditMode ? 'Copy Audit Link' : 'Copy Work Order Link';
+                    copyBtn.title = (auditMode && !isFollowUpActivityValue) ? 'Copy Audit Link' : 'Copy Work Order Link';
                     copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M192 0c-41.8 0-77.4 26.7-90.5 64L64 64C28.7 64 0 92.7 0 128V448c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V128c0-35.3-28.7-64-64-64h-37.5C269.4 26.7 233.8 0 192 0zm0 64a32 32 0 1 1 0 64 32 32 0 1 1 0-64zM305 273L177 401c-9.4 9.4-24.6 9.4-33.9 0L79 337c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47 111-111c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"></path></svg>';
                     Object.assign(copyBtn.style, {
                         marginLeft: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -3247,7 +3254,7 @@
                     wrap.appendChild(link);
                     wrap.appendChild(copyBtn);
                     fragment.appendChild(wrap);
-                    lastIndex = index + workOrder.length;
+                    lastIndex = index + displayValue.length;
                 }
                 fragment.appendChild(doc.createTextNode(text.slice(lastIndex)));
                 textNode.parentNode.replaceChild(fragment, textNode);
