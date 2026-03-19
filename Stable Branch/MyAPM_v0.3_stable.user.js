@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.123_stable
+// @version      0.3.124_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.123_stable';
+    const CURRENT_VERSION = '0.3.124_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -331,6 +331,65 @@
         }
     }
 
+    function getButtonLabel(el) {
+        if (!el) return '';
+        return cleanText(
+            el.textContent
+            || el.innerText
+            || el.getAttribute('aria-label')
+            || el.getAttribute('title')
+            || el.getAttribute('value')
+            || ''
+        );
+    }
+
+    function clickElement(el) {
+        if (!el) return false;
+        try {
+            if (typeof el.click === 'function') {
+                el.click();
+                return true;
+            }
+        } catch (_) {}
+        try {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: el.ownerDocument.defaultView || window }));
+            return true;
+        } catch (_) {}
+        return false;
+    }
+
+    function getTransientInfoDialogRoots(doc) {
+        if (!doc || !doc.querySelectorAll) return [];
+        const roots = new Set();
+        const addRoot = (el) => {
+            if (!el || roots.has(el) || !isVisibleElement(el)) return;
+            roots.add(el);
+        };
+
+        doc.querySelectorAll('.eam-mb-item, .x-message-box, .x-window, .x-window-dlg').forEach((el) => {
+            const root = el.closest ? (el.closest('.x-window, .x-message-box, .x-window-dlg') || el) : el;
+            addRoot(root);
+        });
+
+        return Array.from(roots);
+    }
+
+    function isTransientInfoDialog(dialogRoot) {
+        if (!dialogRoot) return false;
+        const text = cleanText(dialogRoot.textContent || '').toLowerCase();
+        const hasInfoIcon = !!dialogRoot.querySelector('.ext-mb-info, .x-message-box-info, [class*="mb-info"], [class*="message-box-info"]');
+        const hasErrorIcon = !!dialogRoot.querySelector('.ext-mb-error, .x-message-box-error, [class*="mb-error"], [class*="message-box-error"]');
+        const hasWarnIcon = !!dialogRoot.querySelector('.ext-mb-warning, .x-message-box-warning, [class*="mb-warning"], [class*="message-box-warning"]');
+        const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, .x-btn, button, [role="button"], input[type=button]')).filter(isVisibleElement);
+        const labels = buttons.map(getButtonLabel).filter(Boolean);
+        if (!labels.length) return false;
+        const okOnly = labels.every((label) => label === 'OK' || label === 'More');
+        if (!okOnly) return false;
+        if (hasErrorIcon || hasWarnIcon) return false;
+        if (hasInfoIcon) return true;
+        return text.includes('information') || text.includes('successfully') || text.includes('completed');
+    }
+
     function dismissTransientInfoDialogs() {
         const docs = [];
         try {
@@ -342,21 +401,16 @@
 
         docs.forEach((doc) => {
             try {
-                const rows = Array.from(doc.querySelectorAll('.eam-mb-item'));
-                rows.forEach((row) => {
-                    if (!isVisibleElement(row)) return;
-                    const dialogRoot = row.closest('.x-window, .x-message-box') || row.parentElement;
+                const roots = getTransientInfoDialogRoots(doc);
+                roots.forEach((dialogRoot) => {
                     if (!dialogRoot || dialogRoot.dataset.myapmAutoDismissed === 'true') return;
-                    const isInfo = !!row.querySelector('.ext-mb-info');
-                    if (!isInfo) return;
-                    const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, button, [role="button"]')).filter(isVisibleElement);
-                    const labels = buttons.map((el) => cleanText(el.textContent || '')).filter(Boolean);
-                    if (!labels.length || !labels.every((label) => label === 'OK' || label === 'More')) return;
-                    const okButton = buttons.find((el) => cleanText(el.textContent || '') === 'OK');
+                    if (!isTransientInfoDialog(dialogRoot)) return;
+                    const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, .x-btn, button, [role="button"], input[type=button]')).filter(isVisibleElement);
+                    const okButton = buttons.find((el) => getButtonLabel(el) === 'OK');
                     if (!okButton) return;
                     dialogRoot.dataset.myapmAutoDismissed = 'true';
                     try {
-                        if (typeof okButton.click === 'function') okButton.click();
+                        if (!clickElement(okButton)) dialogRoot.style.display = 'none';
                         else dialogRoot.style.display = 'none';
                     } catch (_) {
                         dialogRoot.style.display = 'none';
@@ -1296,16 +1350,37 @@
         return true;
     }
 
+    function hasOwnedComponent(root, selector) {
+        if (!root || typeof root.down !== 'function') return false;
+        try {
+            return !!root.down(selector);
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function isSplitContainerContext(flow, ctx) {
+        if (!flow || !ctx) return false;
+        const roots = [ctx.currentTab, ctx.screen].filter(Boolean);
+        return roots.some((root) => {
+            try {
+                if (String(root && root.xtype || '').toLowerCase() === 'uxsplitcontainer') return true;
+            } catch (_) {}
+            return hasOwnedComponent(root, 'uxsplitcontainer');
+        });
+    }
+
     function isRunnableFlowContext(flow, ctx) {
         if (!flowMatchesContext(flow, ctx)) return false;
         try {
             const id = getScreenIdentity(ctx);
             const tabName = cleanText(id.currentTabName || '').toUpperCase();
+            if (isSplitContainerContext(flow, ctx)) return false;
             const runBtn = getRunButton(ctx);
             const grid = getActiveGrid(ctx, flow);
-            if (runBtn && grid) return true;
+            if (canInvokeGridRun(grid, runBtn)) return true;
             if (tabName === 'HDR' && !runBtn) return false;
-            return !!(runBtn || grid);
+            return false;
         } catch (_) {
             return false;
         }
@@ -1481,8 +1556,8 @@
         return null;
     }
 
-    function getRunButton(ctx) {
-        const roots = [ctx && ctx.currentTab, ctx && ctx.screen].filter(Boolean);
+    function getRunButtonInRoot(root) {
+        if (!root || typeof root.down !== 'function') return null;
         const selectors = [
             'button[action=run]',
             'button[uftId=run]',
@@ -1491,24 +1566,36 @@
             'button'
         ];
 
-        for (const root of roots) {
-            if (!root || typeof root.down !== 'function') continue;
-            for (const selector of selectors) {
-                try {
-                    const cmp = selector === 'button' ? null : root.down(selector);
-                    if (cmp && isCmpVisible(cmp)) return cmp;
-                } catch (_) {}
-            }
-
+        for (const selector of selectors) {
             try {
-                const buttons = root.query ? root.query('button') : [];
-                const byText = buttons.find((cmp) => {
-                    if (!isCmpVisible(cmp)) return false;
-                    const label = cleanText(cmp.text || cmp.ariaLabel || cmp.title || '');
-                    return label.toLowerCase() === 'run';
-                });
-                if (byText) return byText;
+                const cmp = selector === 'button' ? null : root.down(selector);
+                if (cmp && isCmpVisible(cmp)) return cmp;
             } catch (_) {}
+        }
+
+        try {
+            const buttons = root.query ? root.query('button') : [];
+            const byText = buttons.find((cmp) => {
+                if (!isCmpVisible(cmp)) return false;
+                const label = cleanText(cmp.text || cmp.ariaLabel || cmp.title || '');
+                return label.toLowerCase() === 'run';
+            });
+            if (byText) return byText;
+        } catch (_) {}
+
+        return null;
+    }
+
+    function canInvokeGridRun(grid, runBtn) {
+        if (grid && typeof grid.runDataspy === 'function') return true;
+        return !!runBtn;
+    }
+
+    function getRunButton(ctx) {
+        const roots = [ctx && ctx.currentTab, ctx && ctx.screen].filter(Boolean);
+        for (const root of roots) {
+            const cmp = getRunButtonInRoot(root);
+            if (cmp) return cmp;
         }
 
         return null;
@@ -1516,7 +1603,46 @@
 
 
     function getContextRoots(ctx) {
+        if (ctx && Array.isArray(ctx.queryRoots) && ctx.queryRoots.length) {
+            return ctx.queryRoots.filter(Boolean);
+        }
         return [ctx && ctx.currentTab, ctx && ctx.screen].filter(Boolean);
+    }
+
+    function getComponentAncestry(cmp) {
+        const chain = [];
+        let current = cmp || null;
+        const seen = new Set();
+        while (current && !seen.has(current)) {
+            seen.add(current);
+            chain.push(current);
+            current = current.ownerCt || (typeof current.up === 'function' ? current.up() : null);
+        }
+        return chain;
+    }
+
+    function getNearestSharedOperationRoot(grid, runBtn) {
+        if (!grid || !runBtn) return null;
+        const runChain = new Set(getComponentAncestry(runBtn));
+        return getComponentAncestry(grid).find((cmp) => runChain.has(cmp) && typeof cmp.query === 'function') || null;
+    }
+
+    function getNearestQueryableAncestor(cmp) {
+        return getComponentAncestry(cmp).find((ancestor) => ancestor && ancestor !== cmp && typeof ancestor.query === 'function') || null;
+    }
+
+    function buildOperationalContext(flow, ctx, grid, runBtn) {
+        if (!ctx) return ctx;
+        const preferredRoot = getNearestSharedOperationRoot(grid, runBtn)
+            || getNearestQueryableAncestor(runBtn)
+            || getNearestQueryableAncestor(grid)
+            || null;
+
+        if (preferredRoot) {
+            return { ...ctx, queryRoots: [preferredRoot], operationScope: 'scoped-root' };
+        }
+
+        return ctx;
     }
 
     function queryVisibleOwnedComponents(ctx, selector) {
@@ -2097,7 +2223,7 @@
             if (!flowMatchesContext(flow, currentCtx) || isAppMasked(currentCtx)) return null;
             const grid = getActiveGrid(currentCtx, flow);
             const runBtn = getRunButton(currentCtx);
-            return grid && runBtn ? { ctx: currentCtx, grid, runBtn } : null;
+            return canInvokeGridRun(grid, runBtn) ? { ctx: currentCtx, grid, runBtn } : null;
         }, timeoutMs, `grid and Run button for ${flow.key}`);
     }
 
@@ -3283,7 +3409,8 @@
 
         ctx = await waitForUnmasked(flow, READY_TIMEOUT_MS);
         let ready = await waitForGridReady(ctx, flow, READY_TIMEOUT_MS);
-        const preRunNotes = await applyPreRunFlowFilters(flow, ready.ctx);
+        const opCtx = buildOperationalContext(flow, ready.ctx, ready.grid, ready.runBtn);
+        const preRunNotes = await applyPreRunFlowFilters(flow, opCtx);
         if (preRunNotes.length) {
             log(`${flow.key} pre-run filters applied`, { steps: preRunNotes });
             await delay(180);
