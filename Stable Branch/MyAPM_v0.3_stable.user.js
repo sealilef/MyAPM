@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.121_stable
+// @version      0.3.122_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.121_stable';
+    const CURRENT_VERSION = '0.3.122_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -3156,6 +3156,7 @@
             const signature = baseText;
             const hasInlineDecorations = !!el.querySelector('.apm-wo-inline-wrap, a.better-apm-workorder, .copy-btn');
             const currentCell = el.closest ? el.closest('.x-grid-cell') : null;
+            const forceWorkOrderLink = isChecklistFollowUpColumn(currentCell);
             const hasWorkOrderText = WORKORDER_ACTIVITY_PLAIN_REGEX.test(signature);
             if (el.dataset.workorderLinked === 'true'
                 && el.dataset.workorderLinkedKey === signature
@@ -3192,7 +3193,7 @@
                 for (const match of matches) {
                     const workOrder = match[1];
                     const activitySuffix = match[2] || '';
-                    const isFollowUpActivityValue = !!activitySuffix;
+                    const isFollowUpActivityValue = !!activitySuffix || forceWorkOrderLink;
                     const displayValue = match[0];
                     const index = match.index || 0;
                     fragment.appendChild(doc.createTextNode(text.slice(lastIndex, index)));
@@ -4159,6 +4160,54 @@
             const indexValue = normalizeReorderLabel(item && item.index);
             return wanted.some((alias) => alias === textValue || alias === indexValue || textValue.includes(alias) || indexValue.includes(alias));
         });
+    }
+
+    function getGridCellHeaderText(cell) {
+        if (!cell || !cell.ownerDocument) return '';
+        const doc = cell.ownerDocument;
+        const columnId = String(
+            cell.getAttribute('data-columnid')
+            || cell.dataset?.columnid
+            || cell.getAttribute('data-column-id')
+            || ''
+        ).trim();
+
+        if (columnId) {
+            const directHeader = doc.getElementById(columnId);
+            const directText = cleanText(directHeader && directHeader.textContent || '');
+            if (directText) return directText;
+
+            const mappedHeader = Array.from(doc.querySelectorAll('.x-column-header')).find((header) => {
+                if (!header) return false;
+                return String(header.id || '').trim() === columnId
+                    || String(header.getAttribute('data-columnid') || '').trim() === columnId
+                    || String(header.getAttribute('data-column-id') || '').trim() === columnId;
+            });
+            const mappedText = cleanText(mappedHeader && mappedHeader.textContent || '');
+            if (mappedText) return mappedText;
+        }
+
+        const row = cell.closest('.x-grid-item');
+        const rowCells = row ? Array.from(row.querySelectorAll('.x-grid-cell')) : [];
+        const cellIndex = rowCells.indexOf(cell);
+        if (cellIndex < 0) return '';
+
+        const grid = cell.closest('.x-grid, .x-panel, .x-gridpanel, .x-grid-view');
+        if (!grid) return '';
+        const headerTexts = Array.from(grid.querySelectorAll('.x-column-header'))
+            .filter((header) => {
+                if (!header) return false;
+                if (header.classList.contains('x-column-header-hidden')) return false;
+                return !!cleanText(header.textContent || '');
+            })
+            .map((header) => cleanText(header.textContent || ''));
+        return cleanText(headerTexts[cellIndex] || '');
+    }
+
+    function isChecklistFollowUpColumn(cell) {
+        const headerText = normalizeReorderLabel(getGridCellHeaderText(cell));
+        if (!headerText) return false;
+        return headerText.includes('followup') || headerText.includes('woactivity');
     }
 
     function isExpectedGridForReorder(contextKey, items) {
