@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.126_stable
+// @version      0.3.127_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.126_stable';
+    const CURRENT_VERSION = '0.3.127_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -1179,6 +1179,27 @@
         return grids;
     }
 
+    function getColumnWidthTargetGrids() {
+        const ctx = getActiveAPMContext();
+        if (!ctx) return [];
+
+        const targets = [];
+        const seen = new Set();
+        [FLOWS.fwos, FLOWS.pms, FLOWS.compliance, FLOWS.audits].forEach((flow) => {
+            try {
+                if (!flowMatchesContext(flow, ctx)) return;
+                const grid = getActiveGrid(ctx, flow);
+                if (!grid || !isCmpVisible(grid) || !isListGridContextForReorder(ctx, grid)) return;
+                const key = String(grid.id || grid.itemId || '');
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                targets.push(grid);
+            } catch (_) {}
+        });
+
+        return targets;
+    }
+
     function isWorkOrderColumn(column) {
         if (!column) return false;
         const bits = [column.text, column.header, column.menuText, column.dataIndex, column.itemId, column.name]
@@ -1248,7 +1269,7 @@
             { match: isRmeAuditColumn, minWidth: 190 }
         ];
         let foundTargetColumn = false;
-        getVisibleGridComponents().forEach((grid) => {
+        getColumnWidthTargetGrids().forEach((grid) => {
             const columns = getGridColumns(grid);
             let gridTouched = false;
             columns.forEach((column) => {
@@ -4314,14 +4335,14 @@
 
         document.addEventListener('pointerdown', (event) => {
             const target = event && event.target;
-            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, a.x-tab')) noteRecordTabInteraction();
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) noteRecordTabInteraction();
         }, true);
 
         document.addEventListener('keydown', (event) => {
             const key = String(event && event.key || '').toLowerCase();
             if (!['enter', ' ', 'arrowleft', 'arrowright'].includes(key)) return;
             const target = event && event.target;
-            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, a.x-tab')) noteRecordTabInteraction();
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) noteRecordTabInteraction();
         }, true);
     }
 
