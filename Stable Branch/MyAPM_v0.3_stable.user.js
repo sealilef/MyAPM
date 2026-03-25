@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.127_stable
+// @version      0.3.128_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.127_stable';
+    const CURRENT_VERSION = '0.3.128_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -91,6 +91,7 @@
     const REORDER_STORAGE_KEY = 'myapmLayoutOrderV1';
     const REORDER_BUTTON_ID = 'myapm-layout-reorder-button';
     const RECORD_TAB_REORDER_COOLDOWN_MS = 2000;
+    const UI_MUTATION_FREEZE_MS = 4000;
     const WORKORDER_ACTIVITY_REGEX = /\b(\d{11})(-\d+)?\b/g;
     const WORKORDER_ACTIVITY_PLAIN_REGEX = /^\d{11}(?:-\d+)?$/;
     const PTP_HISTORY_STORAGE_KEY = 'apm_ptp_history';
@@ -138,6 +139,7 @@
         itemsKey: ''
     };
     let lastRecordTabInteractionAt = 0;
+    let uiMutationFreezeUntil = 0;
 
     function startOfDay(date) {
         const d = new Date(date);
@@ -1390,6 +1392,21 @@
                 }
             })()
         };
+    }
+
+    function isChecklistActiveContext(ctx) {
+        const identity = getScreenIdentity(ctx || {});
+        const haystack = `${identity.currentTabName} ${identity.activeTabTitle}`.toLowerCase();
+        return /\bcheck\s*list\b|\bchecklist\b/.test(haystack);
+    }
+
+    function freezeUiMutations(durationMs = UI_MUTATION_FREEZE_MS) {
+        const duration = Math.max(250, Number(durationMs) || UI_MUTATION_FREEZE_MS);
+        uiMutationFreezeUntil = Math.max(uiMutationFreezeUntil, Date.now() + duration);
+    }
+
+    function isUiMutationFrozen() {
+        return Date.now() < uiMutationFreezeUntil;
     }
 
     function flowMatchesContext(flow, ctx) {
@@ -3450,6 +3467,8 @@
 
     async function navigateAndRun(flow) {
         log(`${flow.key} run started`);
+        const startingCtx = getActiveAPMContext();
+        if (isChecklistActiveContext(startingCtx)) freezeUiMutations();
 
         let ctx = getActiveAPMContext();
         if (!isRunnableFlowContext(flow, ctx)) {
@@ -3496,6 +3515,7 @@
 
         const afterCount = store && typeof store.getCount === 'function' ? store.getCount() : null;
         log(`${flow.key} run completed`, { afterCount });
+        freezeUiMutations(1500);
         return { ctx: ready.ctx, grid: ready.grid, afterCount };
     }
 
@@ -4335,14 +4355,22 @@
 
         document.addEventListener('pointerdown', (event) => {
             const target = event && event.target;
-            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) noteRecordTabInteraction();
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) {
+                const ctx = getActiveAPMContext();
+                if (isChecklistActiveContext(ctx)) freezeUiMutations();
+                noteRecordTabInteraction();
+            }
         }, true);
 
         document.addEventListener('keydown', (event) => {
             const key = String(event && event.key || '').toLowerCase();
             if (!['enter', ' ', 'arrowleft', 'arrowright'].includes(key)) return;
             const target = event && event.target;
-            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) noteRecordTabInteraction();
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, .x-tab-button, a.x-tab, [role=\"tab\"]')) {
+                const ctx = getActiveAPMContext();
+                if (isChecklistActiveContext(ctx)) freezeUiMutations();
+                noteRecordTabInteraction();
+            }
         }, true);
     }
 
@@ -5331,6 +5359,7 @@
         }
         clearInterval(bootstrap._linkifyTimer);
         bootstrap._linkifyTimer = setInterval(() => {
+            if (isUiMutationFrozen()) return;
             detectCurrentUserName();
             linkifyWorkorderNumbers();
             ensureActiveRecordHeaderUi();
@@ -5347,6 +5376,7 @@
     }
 
     window.addEventListener('pageshow', () => {
+        if (isUiMutationFrozen()) return;
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'pageshow', GRID_RESIZE_RETRY_COUNT + 4, 500);
         refreshResultsModalPtpBadges();
@@ -5355,6 +5385,7 @@
     });
 
     window.addEventListener('focus', () => {
+        if (isUiMutationFrozen()) return;
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'focus', 6, 400);
         refreshResultsModalPtpBadges();
@@ -5369,6 +5400,7 @@
         gridResizeObserver = new MutationObserver(() => {
             clearTimeout(timer);
             timer = setTimeout(() => {
+                if (isUiMutationFrozen()) return;
                 dismissTransientInfoDialogs();
                 ensureReasonableWorkOrderColumnWidth();
             }, 120);
@@ -5379,6 +5411,7 @@
     }
 
     window.addEventListener(PTP_HISTORY_EVENT_NAME, () => {
+        if (isUiMutationFrozen()) return;
         refreshPtpDecorations();
         refreshResultsModalPtpBadges();
         ensureReasonableWorkOrderColumnWidth();
