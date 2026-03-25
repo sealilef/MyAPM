@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.125_stable
+// @version      0.3.126_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.125_stable';
+    const CURRENT_VERSION = '0.3.126_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -90,6 +90,7 @@
     const REORDER_PANEL_ID = 'myapm-reorder-panel';
     const REORDER_STORAGE_KEY = 'myapmLayoutOrderV1';
     const REORDER_BUTTON_ID = 'myapm-layout-reorder-button';
+    const RECORD_TAB_REORDER_COOLDOWN_MS = 2000;
     const WORKORDER_ACTIVITY_REGEX = /\b(\d{11})(-\d+)?\b/g;
     const WORKORDER_ACTIVITY_PLAIN_REGEX = /^\d{11}(?:-\d+)?$/;
     const PTP_HISTORY_STORAGE_KEY = 'apm_ptp_history';
@@ -131,6 +132,12 @@
     const reorderState = {
         contexts: {}
     };
+    const recordTabOrderState = {
+        panelId: '',
+        orderKey: '',
+        itemsKey: ''
+    };
+    let lastRecordTabInteractionAt = 0;
 
     function startOfDay(date) {
         const d = new Date(date);
@@ -4274,6 +4281,50 @@
         return ordered.join(', ');
     }
 
+    function getRecordTabItemsKey(items) {
+        return (Array.isArray(items) ? items : []).map((item) => String(item && item.index || '').trim()).filter(Boolean).join('|');
+    }
+
+    function countKnownRecordTabs(items) {
+        const preferred = new Set(DEFAULT_RECORD_TAB_PRIORITY.map((label) => normalizeReorderLabel(label)));
+        return (Array.isArray(items) ? items : []).reduce((count, item) => {
+            const label = normalizeReorderLabel(item && (item.text || item.index));
+            return count + (preferred.has(label) ? 1 : 0);
+        }, 0);
+    }
+
+    function isLikelyRecordTabPanel(ctx, panel, items) {
+        if (!ctx || !panel || !Array.isArray(items) || items.length < 2) return false;
+        if (countKnownRecordTabs(items) < 2) return false;
+
+        const identity = getScreenIdentity(ctx);
+        const scope = `${identity.systemFunction} ${identity.userFunction} ${identity.moduleHeaderText} ${identity.currentTabName} ${identity.activeTabTitle}`.toLowerCase();
+        if (scope && !/(work order|work orders|jobs|wsjobs)/.test(scope)) return false;
+
+        return true;
+    }
+
+    function noteRecordTabInteraction() {
+        lastRecordTabInteractionAt = Date.now();
+    }
+
+    function installRecordTabInteractionTracking() {
+        if (window.__myapmRecordTabInteractionTrackingInstalled) return;
+        window.__myapmRecordTabInteractionTrackingInstalled = true;
+
+        document.addEventListener('pointerdown', (event) => {
+            const target = event && event.target;
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, a.x-tab')) noteRecordTabInteraction();
+        }, true);
+
+        document.addEventListener('keydown', (event) => {
+            const key = String(event && event.key || '').toLowerCase();
+            if (!['enter', ' ', 'arrowleft', 'arrowright'].includes(key)) return;
+            const target = event && event.target;
+            if (target && typeof target.closest === 'function' && target.closest('.x-tab, .x-tab-inner, a.x-tab')) noteRecordTabInteraction();
+        }, true);
+    }
+
     function ensureDefaultReorderForContext(contextKey, items) {
         if (!Array.isArray(items) || !items.length) return '';
         const config = getReorderConfig(contextKey);
@@ -4429,7 +4480,8 @@
                     if (!textValue) return null;
                     return { index: textValue, text: textValue, ref: item };
                 }).filter(Boolean);
-                if (items.length >= 2) return { ctx, panel, items };
+                if (!isLikelyRecordTabPanel(ctx, panel, items)) continue;
+                if (items.length >= 2) return { ctx, panel, items, itemsKey: getRecordTabItemsKey(items) };
             }
         }
         return null;
@@ -4487,17 +4539,27 @@
     }
 
     function applyRecordTabOrder() {
+        if ((Date.now() - lastRecordTabInteractionAt) < RECORD_TAB_REORDER_COOLDOWN_MS) return;
         const probe = probeRecordTabs();
         if (!probe || !probe.panel || !probe.items.length) return;
         const orderStr = ensureDefaultReorderForContext('recordTabs', probe.items);
         const preferredOrder = String(orderStr || '').split(',').map((s) => s.trim()).filter(Boolean);
         if (!preferredOrder.length) return;
+        const panelId = String(probe.panel.id || '');
+        const itemsKey = probe.itemsKey || getRecordTabItemsKey(probe.items);
+        const orderKey = preferredOrder.join('|');
+        if (recordTabOrderState.panelId === panelId && recordTabOrderState.orderKey === orderKey && recordTabOrderState.itemsKey === itemsKey) return;
         let needsMove = false;
         preferredOrder.forEach((tabName, targetIndex) => {
             const currentIndex = probe.panel.items.findIndexBy((item) => cleanText(item && (item.title || item.text || item.itemId || '')) === tabName);
             if (currentIndex !== -1 && currentIndex !== targetIndex) needsMove = true;
         });
-        if (!needsMove) return;
+        if (!needsMove) {
+            recordTabOrderState.panelId = panelId;
+            recordTabOrderState.orderKey = orderKey;
+            recordTabOrderState.itemsKey = itemsKey;
+            return;
+        }
         let layoutsSuspended = false;
         try {
             const Ext = getTopExt();
@@ -4517,6 +4579,9 @@
                 if (layoutsSuspended && Ext && typeof Ext.resumeLayouts === 'function') Ext.resumeLayouts(true);
                 if (typeof probe.panel.updateLayout === 'function') probe.panel.updateLayout();
             } catch (_) {}
+            recordTabOrderState.panelId = panelId;
+            recordTabOrderState.orderKey = orderKey;
+            recordTabOrderState.itemsKey = getRecordTabItemsKey(probe.panel && probe.panel.items && probe.panel.items.items ? probe.panel.items.items.map((item) => ({ index: cleanText(item && (item.title || item.text || item.itemId || '')) })) : probe.items);
         }
     }
 
@@ -5227,6 +5292,7 @@
         if (!isApmControlHost()) return;
         ensureDueWindowDefaults();
         loadReorderState();
+        installRecordTabInteractionTracking();
         injectButtons();
         ensureHeaderWorkOrderSearch();
         checkForScriptUpdates();
