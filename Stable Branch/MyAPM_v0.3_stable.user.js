@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.128_stable
+// @version      0.3.129_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.128_stable';
+    const CURRENT_VERSION = '0.3.129_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -1148,6 +1148,48 @@
             const description = cleanText(wrap.getAttribute('data-wo-desc') || '');
             upsertPtpBadge(wrap, woNumber, history[woNumber], { showPending: true, description });
         });
+    }
+
+    function resetLinkifiedCell(el, doc) {
+        if (!el) return;
+        const ownerDoc = doc || el.ownerDocument || document;
+        const existingWraps = Array.from(el.querySelectorAll('.apm-wo-inline-wrap'));
+        if (existingWraps.length) {
+            existingWraps.forEach((wrap) => {
+                const rawWo = wrap.getAttribute('data-wo-num') || cleanText(wrap.textContent || '');
+                wrap.replaceWith(ownerDoc.createTextNode(rawWo));
+            });
+        }
+        Array.from(el.querySelectorAll('a.better-apm-workorder, .copy-btn, .ptp-inline-badge')).forEach((node) => {
+            if (!node.closest || !node.closest('.apm-wo-inline-wrap')) node.remove();
+        });
+        delete el.dataset.workorderLinked;
+        delete el.dataset.workorderLinkedKey;
+    }
+
+    function getLinkifyTargetGridRoots(ctx) {
+        if (!ctx) return [];
+        const roots = [];
+        const seen = new Set();
+        [FLOWS.fwos, FLOWS.pms, FLOWS.compliance, FLOWS.audits].forEach((flow) => {
+            try {
+                if (!flowMatchesContext(flow, ctx)) return;
+                const grid = getActiveGrid(ctx, flow);
+                if (!grid || !isCmpVisible(grid) || !isListGridContextForReorder(ctx, grid)) return;
+                const candidates = [];
+                const gridEl = typeof grid.getEl === 'function' ? grid.getEl() : grid.el;
+                if (gridEl && gridEl.dom) candidates.push(gridEl.dom);
+                const view = typeof grid.getView === 'function' ? grid.getView() : grid.view;
+                const viewEl = view && (typeof view.getEl === 'function' ? view.getEl() : view.el);
+                if (viewEl && viewEl.dom) candidates.push(viewEl.dom);
+                candidates.forEach((node) => {
+                    if (!node || seen.has(node)) return;
+                    seen.add(node);
+                    roots.push(node);
+                });
+            } catch (_) {}
+        });
+        return roots;
     }
 
     function getVisibleGridComponents() {
@@ -3341,9 +3383,17 @@
         const ctx = getActiveAPMContext();
         const doc = ctx && ctx.appWin && ctx.appWin.document ? ctx.appWin.document : document;
         const auditMode = !!(ctx && flowMatchesContext(FLOWS.audits, ctx));
+        const allowedGridRoots = getLinkifyTargetGridRoots(ctx);
         const selector = 'div.x-grid-cell-inner';
         doc.querySelectorAll(selector).forEach((el) => {
             if (el.closest && el.closest(`#${MODAL_HOST_ID}`)) return;
+            const currentCell = el.closest ? el.closest('.x-grid-cell') : null;
+            const forceWorkOrderLink = isChecklistFollowUpColumn(currentCell);
+            const isAllowedGrid = forceWorkOrderLink || allowedGridRoots.some((root) => root && typeof root.contains === 'function' && root.contains(el));
+            if (!isAllowedGrid) {
+                resetLinkifiedCell(el, doc);
+                return;
+            }
             const existingWraps = Array.from(el.querySelectorAll('.apm-wo-inline-wrap'));
             const baseText = existingWraps.length
                 ? cleanText(Array.from(el.childNodes).map((node) => {
@@ -3355,8 +3405,6 @@
                 : cleanText(el.textContent || '');
             const signature = baseText;
             const hasInlineDecorations = !!el.querySelector('.apm-wo-inline-wrap, a.better-apm-workorder, .copy-btn');
-            const currentCell = el.closest ? el.closest('.x-grid-cell') : null;
-            const forceWorkOrderLink = isChecklistFollowUpColumn(currentCell);
             const hasWorkOrderText = WORKORDER_ACTIVITY_PLAIN_REGEX.test(signature);
             if (el.dataset.workorderLinked === 'true'
                 && el.dataset.workorderLinkedKey === signature
@@ -3368,15 +3416,7 @@
                 el.dataset.workorderLinkedKey = signature;
                 return;
             }
-            if (existingWraps.length) {
-                existingWraps.forEach((wrap) => {
-                    const rawWo = wrap.getAttribute('data-wo-num') || cleanText(wrap.textContent || '');
-                    wrap.replaceWith(doc.createTextNode(rawWo));
-                });
-            }
-            Array.from(el.querySelectorAll('a.better-apm-workorder, .copy-btn, .ptp-inline-badge')).forEach((node) => {
-                if (!node.closest || !node.closest('.apm-wo-inline-wrap')) node.remove();
-            });
+            resetLinkifiedCell(el, doc);
             el.dataset.workorderLinked = 'true';
             el.dataset.workorderLinkedKey = signature;
 
