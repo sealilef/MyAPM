@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.3.129_stable
+// @version      0.3.130_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.3.129_stable';
+    const CURRENT_VERSION = '0.3.130_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_v0.3_stable.user.js';
@@ -365,97 +365,6 @@
             return true;
         } catch (_) {}
         return false;
-    }
-
-    function getTransientInfoDialogRoots(doc) {
-        if (!doc || !doc.querySelectorAll) return [];
-        const roots = new Set();
-        const addRoot = (el) => {
-            if (!el || roots.has(el) || !isVisibleElement(el)) return;
-            roots.add(el);
-        };
-
-        doc.querySelectorAll('.eam-mb-item, .x-message-box, .x-window, .x-window-dlg, .x-container-msgdrop, .x-container-msgdrop.confirm').forEach((el) => {
-            const root = el.closest ? (el.closest('.x-container-msgdrop, .x-window, .x-message-box, .x-window-dlg') || el) : el;
-            addRoot(root);
-        });
-
-        return Array.from(roots);
-    }
-
-    function isTransientInfoDialog(dialogRoot) {
-        if (!dialogRoot) return false;
-        const text = cleanText(dialogRoot.textContent || '').toLowerCase();
-        const isMsgDrop = dialogRoot.classList && dialogRoot.classList.contains('x-container-msgdrop');
-        const hasInfoIcon = !!dialogRoot.querySelector('.ext-mb-info, .x-message-box-info, [class*="mb-info"], [class*="message-box-info"]');
-        const hasErrorIcon = !!dialogRoot.querySelector('.ext-mb-error, .x-message-box-error, [class*="mb-error"], [class*="message-box-error"]');
-        const hasWarnIcon = !!dialogRoot.querySelector('.ext-mb-warning, .x-message-box-warning, [class*="mb-warning"], [class*="message-box-warning"]');
-        const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, .x-btn, button, [role="button"], input[type=button]')).filter(isVisibleElement);
-        const labels = buttons.map(getButtonLabel).filter(Boolean);
-        if (!labels.length) return false;
-        const okOnly = labels.every((label) => label === 'OK' || label === 'More');
-        if (!okOnly) return false;
-        if (hasErrorIcon || hasWarnIcon) return false;
-        if (isMsgDrop) {
-            return dialogRoot.classList.contains('confirm')
-                || text.includes('successfully saved')
-                || text.includes('successfully')
-                || text.includes('completed');
-        }
-        if (hasInfoIcon) return true;
-        return text.includes('information') || text.includes('successfully') || text.includes('completed');
-    }
-
-    function hideTransientInfoDialog(dialogRoot) {
-        if (!dialogRoot) return;
-        try { dialogRoot.style.setProperty('display', 'none', 'important'); } catch (_) {}
-        try { dialogRoot.style.setProperty('visibility', 'hidden', 'important'); } catch (_) {}
-        try { dialogRoot.style.setProperty('pointer-events', 'none', 'important'); } catch (_) {}
-        try { dialogRoot.setAttribute('aria-hidden', 'true'); } catch (_) {}
-        try {
-            if (dialogRoot.parentNode) {
-                setTimeout(() => {
-                    try {
-                        if (dialogRoot.parentNode) dialogRoot.parentNode.removeChild(dialogRoot);
-                    } catch (_) {}
-                }, 0);
-            }
-        } catch (_) {}
-    }
-
-    function dismissTransientInfoDialogs() {
-        const docs = [];
-        try {
-            if (window.top && window.top.document) docs.push(window.top.document);
-        } catch (_) {}
-        try {
-            if (document && !docs.includes(document)) docs.push(document);
-        } catch (_) {}
-
-        docs.forEach((doc) => {
-            try {
-                const roots = getTransientInfoDialogRoots(doc);
-                roots.forEach((dialogRoot) => {
-                    if (!dialogRoot || dialogRoot.dataset.myapmAutoDismissed === 'true') return;
-                    if (!isTransientInfoDialog(dialogRoot)) return;
-                    hideTransientInfoDialog(dialogRoot);
-                    dialogRoot.dataset.myapmAutoDismissed = 'true';
-                    const buttons = Array.from(dialogRoot.querySelectorAll('a.x-btn, .x-btn, button, [role="button"], input[type=button]')).filter(isVisibleElement);
-                    const okButton = buttons.find((el) => getButtonLabel(el) === 'OK');
-                    const moreButton = buttons.find((el) => getButtonLabel(el) === 'More');
-                    try {
-                        if (okButton && clickElement(okButton)) return;
-                        if (moreButton) clickElement(moreButton);
-                        const revealedOk = Array.from(dialogRoot.querySelectorAll('a.x-btn, .x-btn, button, [role="button"], input[type=button]'))
-                            .filter(isVisibleElement)
-                            .find((el) => getButtonLabel(el) === 'OK');
-                        if (revealedOk) clickElement(revealedOk);
-                    } catch (_) {
-                        hideTransientInfoDialog(dialogRoot);
-                    }
-                });
-            } catch (_) {}
-        });
     }
 
     const updateListeners = [];
@@ -5390,7 +5299,6 @@
         linkifyWorkorderNumbers();
         ensureActiveRecordHeaderUi();
         refreshPtpDecorations();
-        dismissTransientInfoDialogs();
         const resizedAtBootstrap = ensureReasonableWorkOrderColumnWidth();
         ensureGridResizeObserver();
         const pendingGridResize = peekGridResizeRequest(45000);
@@ -5405,7 +5313,6 @@
             ensureActiveRecordHeaderUi();
             refreshPtpDecorations();
             refreshResultsModalPtpBadges();
-            dismissTransientInfoDialogs();
             ensureReasonableWorkOrderColumnWidth();
             const pendingResize = peekGridResizeRequest(45000);
             if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'interval', 2, 500);
@@ -5420,7 +5327,6 @@
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'pageshow', GRID_RESIZE_RETRY_COUNT + 4, 500);
         refreshResultsModalPtpBadges();
-        dismissTransientInfoDialogs();
         ensureReasonableWorkOrderColumnWidth();
     });
 
@@ -5429,7 +5335,6 @@
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'focus', 6, 400);
         refreshResultsModalPtpBadges();
-        dismissTransientInfoDialogs();
         ensureReasonableWorkOrderColumnWidth();
     });
 
@@ -5441,7 +5346,6 @@
             clearTimeout(timer);
             timer = setTimeout(() => {
                 if (isUiMutationFrozen()) return;
-                dismissTransientInfoDialogs();
                 ensureReasonableWorkOrderColumnWidth();
             }, 120);
         });
