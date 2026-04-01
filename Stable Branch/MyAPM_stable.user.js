@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.0_stable
+// @version      0.4.1_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.0_stable';
+    const CURRENT_VERSION = '0.4.1_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -259,7 +259,7 @@
         const raw = cleanText(themeValue || '').toLowerCase();
         if (!raw || raw === 'system default') return 'default';
         const match = THEME_OPTIONS.find((option) => option.value.toLowerCase() === raw);
-        return match ? match.value : 'theme-dark';
+        return match ? match.value : 'default';
     }
 
     function getThemeManifestPath(themeValue) {
@@ -521,9 +521,7 @@
                         enumerable: true,
                         get: () => {
                             const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                            return activeTheme === 'default'
-                                ? (eamObj[THEME_ORIGINAL_CSS_PATH_KEY] || activeTheme)
-                                : activeTheme;
+                            return activeTheme === 'default' ? '' : activeTheme;
                         },
                         set: (nextValue) => {
                             try { eamObj[THEME_ORIGINAL_CSS_PATH_KEY] = nextValue; } catch (_) {}
@@ -534,7 +532,7 @@
             } else {
                 try {
                     const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                    if (activeTheme === 'default' && eamObj[THEME_ORIGINAL_CSS_PATH_KEY]) eamObj.CSS_PATH = eamObj[THEME_ORIGINAL_CSS_PATH_KEY];
+                    if (activeTheme === 'default') eamObj.CSS_PATH = '';
                 } catch (_) {}
             }
         };
@@ -549,9 +547,7 @@
                         enumerable: true,
                         get: () => {
                             const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                            return activeTheme === 'default'
-                                ? (extObj[THEME_ORIGINAL_MANIFEST_KEY] || '')
-                                : getThemeManifestPath(activeTheme);
+                            return activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
                         },
                         set: (nextValue) => {
                             try { extObj[THEME_ORIGINAL_MANIFEST_KEY] = nextValue; } catch (_) {}
@@ -560,9 +556,7 @@
                 } catch (_) {
                     try {
                         const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                        extObj.manifest = activeTheme === 'default'
-                            ? (extObj[THEME_ORIGINAL_MANIFEST_KEY] || extObj.manifest)
-                            : getThemeManifestPath(activeTheme);
+                        extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
                     } catch (_) {}
                 }
                 try {
@@ -570,9 +564,7 @@
                     extObj[THEME_BEFORELOAD_WRAPPER_KEY] = function(...args) {
                         const activeTheme = normalizeThemeValue(themeState.activeTheme);
                         try {
-                            extObj.manifest = activeTheme === 'default'
-                                ? (extObj[THEME_ORIGINAL_MANIFEST_KEY] || '')
-                                : getThemeManifestPath(activeTheme);
+                            extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
                         } catch (_) {}
                         const originalBeforeLoad = extObj[THEME_ORIGINAL_BEFORELOAD_KEY];
                         if (typeof originalBeforeLoad === 'function') {
@@ -595,9 +587,7 @@
             } else {
                 try {
                     const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                    extObj.manifest = activeTheme === 'default'
-                        ? (extObj[THEME_ORIGINAL_MANIFEST_KEY] || extObj.manifest)
-                        : getThemeManifestPath(activeTheme);
+                    extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
                 } catch (_) {}
             }
         };
@@ -5650,11 +5640,32 @@
             lineHeight: '1.45'
         });
 
-        const optionsWrap = document.createElement('div');
-        Object.assign(optionsWrap.style, {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        const fieldWrap = document.createElement('div');
+        Object.assign(fieldWrap.style, {
+            display: 'flex',
+            flexDirection: 'column',
             gap: '8px'
+        });
+
+        const selectLabel = document.createElement('label');
+        selectLabel.textContent = 'Theme mode';
+        Object.assign(selectLabel.style, {
+            fontSize: '12px',
+            fontWeight: '700',
+            color: '#dbe7f7'
+        });
+
+        const select = document.createElement('select');
+        Object.assign(select.style, {
+            minHeight: '38px',
+            padding: '8px 10px',
+            borderRadius: '10px',
+            border: '1px solid rgba(110,134,166,0.72)',
+            background: 'rgba(247,249,252,0.08)',
+            color: '#f4f8ff',
+            font: '700 12px/18px Arial, Helvetica, sans-serif',
+            outline: 'none',
+            cursor: 'pointer'
         });
 
         const status = document.createElement('div');
@@ -5662,22 +5673,6 @@
             fontSize: '12px',
             color: '#8fa7c7'
         });
-
-        const buttons = [];
-
-        const applyButtonState = (button, active) => {
-            Object.assign(button.style, active ? {
-                borderColor: '#6fb3ff',
-                background: 'linear-gradient(180deg, rgba(77, 137, 214, 0.42), rgba(44, 86, 140, 0.42))',
-                color: '#f4f8ff',
-                boxShadow: '0 0 0 2px rgba(111,179,255,0.16)'
-            } : {
-                borderColor: 'rgba(110,134,166,0.72)',
-                background: 'rgba(247,249,252,0.08)',
-                color: '#dbe7f7',
-                boxShadow: 'none'
-            });
-        };
 
         const syncStatus = () => {
             let selected = normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
@@ -5689,52 +5684,26 @@
             } catch (_) {}
             const option = THEME_OPTIONS.find((entry) => entry.value === selected);
             status.textContent = `Active theme: ${option ? option.label : selected}`;
-            buttons.forEach(({ value, button }) => {
-                const active = value === selected;
-                button.setAttribute('aria-pressed', active ? 'true' : 'false');
-                applyButtonState(button, active);
-            });
+            select.value = option ? option.value : 'default';
         };
 
         THEME_OPTIONS.forEach((option) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = option.label;
-            button.dataset.themeValue = option.value;
-            button.setAttribute('aria-pressed', 'false');
-            Object.assign(button.style, {
-                minHeight: '36px',
-                padding: '8px 10px',
-                borderRadius: '10px',
-                border: '1px solid rgba(110,134,166,0.72)',
-                background: 'rgba(247,249,252,0.08)',
-                color: '#dbe7f7',
-                font: '700 12px/18px Arial, Helvetica, sans-serif',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease'
-            });
-            button.addEventListener('mouseenter', () => {
-                if (button.getAttribute('aria-pressed') === 'true') return;
-                button.style.background = 'rgba(247,249,252,0.14)';
-                button.style.borderColor = '#88a7d1';
-            });
-            button.addEventListener('mouseleave', () => {
-                if (button.getAttribute('aria-pressed') === 'true') return;
-                applyButtonState(button, false);
-            });
-            button.addEventListener('click', () => {
-                const nextTheme = applyPreferredThemeFromController(option.value);
-                syncStatus();
-                showToast(`Theme set to ${(THEME_OPTIONS.find((entry) => entry.value === nextTheme) || {}).label || nextTheme}.`, 'success');
-            });
-            buttons.push({ value: option.value, button });
-            optionsWrap.appendChild(button);
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.label;
+            select.appendChild(optionEl);
+        });
+
+        select.addEventListener('change', () => {
+            const nextTheme = applyPreferredThemeFromController(select.value || 'default');
+            syncStatus();
+            showToast(`Theme set to ${(THEME_OPTIONS.find((entry) => entry.value === nextTheme) || {}).label || nextTheme}.`, 'success');
         });
 
         syncStatus();
+        fieldWrap.append(selectLabel, select);
         head.append(title, subtitle);
-        card.append(head, optionsWrap, status);
+        card.append(head, fieldWrap, status);
         return card;
     }
 
