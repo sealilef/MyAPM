@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.3_stable
+// @version      0.4.4_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.3_stable';
+    const CURRENT_VERSION = '0.4.4_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -385,11 +385,6 @@
 
     function canRelaunchPinnedThemePage(targetLocation = location) {
         try {
-            const href = String(targetLocation && targetLocation.href || '');
-            if (!href || !isTrustedThemeOrigin(href)) return false;
-            const sanitized = sanitizeApmThemeUrl(href);
-            if (sanitized.changed && sanitized.theme) return true;
-
             const pathname = String(targetLocation && targetLocation.pathname || '').toLowerCase();
             return pathname.includes('/web/base/logindisp')
                 || pathname.includes('/web/base/ssoservlet')
@@ -400,30 +395,7 @@
     }
 
     function maybeRelaunchConflictingThemeUrl() {
-        const sanitized = sanitizeApmThemeUrl(location.href);
-        const urlTheme = sanitized.theme || getUrlThemeValue(location);
-        if (!urlTheme) return false;
-        const preferredTheme = normalizeThemeValue(getPreferredTheme());
-        if (!preferredTheme || preferredTheme === urlTheme) return false;
-        if (!canRelaunchPinnedThemePage(location)) return false;
-        if (!sanitized.changed) return false;
-
-        try {
-            if (sessionStorage.getItem(THEME_URL_RELAUNCH_GUARD_KEY) === location.href) {
-                sessionStorage.removeItem(THEME_URL_RELAUNCH_GUARD_KEY);
-                return false;
-            }
-        } catch (_) {}
-
-        try {
-            setTopThemeParam(preferredTheme);
-            sessionStorage.setItem(THEME_URL_RELAUNCH_GUARD_KEY, location.href);
-            location.replace(sanitized.url);
-            return true;
-        } catch (_) {
-            try { sessionStorage.removeItem(THEME_URL_RELAUNCH_GUARD_KEY); } catch (_) {}
-            return false;
-        }
+        return false;
     }
 
     function setTopThemeParam(themeValue) {
@@ -466,11 +438,35 @@
         return normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
     }
 
+    function stripPinnedThemeFromAddressBar(targetWindow = window) {
+        try {
+            const href = String(targetWindow.location && targetWindow.location.href || '');
+            if (!href) return;
+            const sanitized = sanitizeApmThemeUrl(href);
+            if (!sanitized.changed || !sanitized.url || sanitized.url === href) return;
+            if (targetWindow.history && typeof targetWindow.history.replaceState === 'function') {
+                targetWindow.history.replaceState(targetWindow.history.state, targetWindow.document ? targetWindow.document.title : '', sanitized.url);
+            }
+        } catch (_) {}
+    }
+
+    function getDefaultThemeStylesheetHref(href) {
+        const rawHref = String(href || '');
+        if (!rawHref) return '';
+        let nextHref = rawHref;
+        nextHref = nextHref.replace(/(theme-)(darkblue|dark|orange|hex-dark)[^./?#]*/i, '$1triton');
+        nextHref = nextHref.replace(/(ext-theme-)(darkblue|dark|orange|hex-dark)[^./?#]*/i, '$1triton');
+        nextHref = nextHref.replace(/\b(darkblue|dark|orange|hex-dark)\b/i, 'triton');
+        return nextHref;
+    }
+
     function enforcePreferredThemeState(themeValue, options = {}) {
         const normalized = normalizeThemeValue(themeValue);
         if (options.persist !== false) setTopThemeParam(normalized);
         enforceThemeLinks(normalized);
         if (normalized === 'default') {
+            hookThemeTargets(window);
+            stripPinnedThemeFromAddressBar(window);
             clearThemeArtifacts(document);
             return;
         }
@@ -498,7 +494,10 @@
                 if (node.dataset.myapmOriginalHref) {
                     const originalHref = String(node.dataset.myapmOriginalHref || '').trim();
                     if (originalHref && originalHref !== href) node.href = originalHref;
+                    return;
                 }
+                const defaultHref = getDefaultThemeStylesheetHref(href);
+                if (defaultHref && defaultHref !== href) node.href = defaultHref;
                 return;
             }
 
@@ -784,68 +783,17 @@
         return window;
     }
 
-    function relaunchCurrentPageForThemeReset(themeValue) {
-        const normalized = normalizeThemeValue(themeValue);
-        if (normalized !== 'default') return false;
-
-        let targetWindow = window;
-        try {
-            const controllerWindow = getThemeControllerWindow();
-            targetWindow = controllerWindow && controllerWindow.top ? controllerWindow.top : (window.top || window);
-        } catch (_) {
-            targetWindow = window.top || window;
-        }
-
-        let currentHref = '';
-        let nextHref = '';
-        try {
-            currentHref = String(targetWindow.location && targetWindow.location.href || '');
-            const sanitized = sanitizeApmThemeUrl(currentHref);
-            nextHref = sanitized && sanitized.url ? String(sanitized.url) : currentHref;
-        } catch (_) {
-            nextHref = currentHref;
-        }
-
-        try {
-            if (nextHref && currentHref && nextHref !== currentHref) {
-                targetWindow.location.replace(nextHref);
-                return true;
-            }
-        } catch (_) {}
-
-        try {
-            targetWindow.location.reload();
-            return true;
-        } catch (_) {}
-
-        return false;
-    }
-
     function applyPreferredThemeFromController(themeValue) {
         const normalized = normalizeThemeValue(themeValue);
         const controllerWindow = getThemeControllerWindow();
-        let previousTheme = 'default';
-        try {
-            if (controllerWindow && controllerWindow.__myapmThemeState) {
-                previousTheme = normalizeThemeValue(controllerWindow.__myapmThemeState.activeTheme || getPreferredTheme());
-            } else {
-                previousTheme = normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
-            }
-        } catch (_) {}
         if (controllerWindow !== window && typeof controllerWindow.__myapmApplyPreferredTheme === 'function') {
             try {
                 controllerWindow.__myapmApplyPreferredTheme(normalized);
                 themeState.activeTheme = normalized;
-                if (normalized === 'default' && previousTheme !== 'default') {
-                    relaunchCurrentPageForThemeReset(normalized);
-                }
                 return normalized;
             } catch (_) {}
         }
         applyPreferredTheme(normalized);
-        if (normalized === 'default' && previousTheme !== 'default') {
-            relaunchCurrentPageForThemeReset(normalized);
-        }
         return normalized;
     }
 
