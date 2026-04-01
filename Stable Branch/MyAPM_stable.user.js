@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.1_stable
+// @version      0.4.2_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.1_stable';
+    const CURRENT_VERSION = '0.4.2_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -779,17 +779,68 @@
         return window;
     }
 
+    function relaunchCurrentPageForThemeReset(themeValue) {
+        const normalized = normalizeThemeValue(themeValue);
+        if (normalized !== 'default') return false;
+
+        let targetWindow = window;
+        try {
+            const controllerWindow = getThemeControllerWindow();
+            targetWindow = controllerWindow && controllerWindow.top ? controllerWindow.top : (window.top || window);
+        } catch (_) {
+            targetWindow = window.top || window;
+        }
+
+        let currentHref = '';
+        let nextHref = '';
+        try {
+            currentHref = String(targetWindow.location && targetWindow.location.href || '');
+            const sanitized = sanitizeApmThemeUrl(currentHref);
+            nextHref = sanitized && sanitized.url ? String(sanitized.url) : currentHref;
+        } catch (_) {
+            nextHref = currentHref;
+        }
+
+        try {
+            if (nextHref && currentHref && nextHref !== currentHref) {
+                targetWindow.location.replace(nextHref);
+                return true;
+            }
+        } catch (_) {}
+
+        try {
+            targetWindow.location.reload();
+            return true;
+        } catch (_) {}
+
+        return false;
+    }
+
     function applyPreferredThemeFromController(themeValue) {
         const normalized = normalizeThemeValue(themeValue);
         const controllerWindow = getThemeControllerWindow();
+        let previousTheme = 'default';
+        try {
+            if (controllerWindow && controllerWindow.__myapmThemeState) {
+                previousTheme = normalizeThemeValue(controllerWindow.__myapmThemeState.activeTheme || getPreferredTheme());
+            } else {
+                previousTheme = normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
+            }
+        } catch (_) {}
         if (controllerWindow !== window && typeof controllerWindow.__myapmApplyPreferredTheme === 'function') {
             try {
                 controllerWindow.__myapmApplyPreferredTheme(normalized);
                 themeState.activeTheme = normalized;
+                if (normalized === 'default' && previousTheme !== 'default') {
+                    relaunchCurrentPageForThemeReset(normalized);
+                }
                 return normalized;
             } catch (_) {}
         }
         applyPreferredTheme(normalized);
+        if (normalized === 'default' && previousTheme !== 'default') {
+            relaunchCurrentPageForThemeReset(normalized);
+        }
         return normalized;
     }
 
