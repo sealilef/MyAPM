@@ -5655,17 +5655,74 @@
             color: '#dbe7f7'
         });
 
-        const select = document.createElement('select');
-        Object.assign(select.style, {
-            minHeight: '38px',
-            padding: '8px 10px',
-            borderRadius: '10px',
-            border: '1px solid rgba(110,134,166,0.72)',
-            background: 'rgba(247,249,252,0.08)',
+        const dropdownWrap = document.createElement('div');
+        Object.assign(dropdownWrap.style, {
+            position: 'relative'
+        });
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        Object.assign(trigger.style, {
+            width: '100%',
+            minHeight: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            padding: '10px 14px',
+            borderRadius: '14px',
+            border: '1px solid rgba(104,134,173,0.75)',
+            background: 'linear-gradient(180deg, rgba(44,58,79,0.94), rgba(35,47,66,0.94))',
             color: '#f4f8ff',
             font: '700 12px/18px Arial, Helvetica, sans-serif',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
             outline: 'none',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease'
+        });
+
+        const triggerText = document.createElement('span');
+        Object.assign(triggerText.style, {
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+        });
+
+        const triggerIcon = document.createElement('span');
+        triggerIcon.innerHTML = `
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+                <path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `;
+        Object.assign(triggerIcon.style, {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#d9e6f7',
+            flex: '0 0 auto',
+            transition: 'transform 0.15s ease'
+        });
+        trigger.append(triggerText, triggerIcon);
+
+        const menu = document.createElement('div');
+        menu.setAttribute('role', 'listbox');
+        Object.assign(menu.style, {
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            left: '0',
+            right: '0',
+            display: 'none',
+            flexDirection: 'column',
+            gap: '4px',
+            padding: '8px',
+            borderRadius: '14px',
+            border: '1px solid rgba(88,118,156,0.55)',
+            background: 'linear-gradient(180deg, rgba(26,37,52,0.98), rgba(17,27,40,0.98))',
+            boxShadow: '0 18px 36px rgba(0,0,0,0.38)',
+            zIndex: '20',
+            backdropFilter: 'blur(12px)'
         });
 
         const status = document.createElement('div');
@@ -5673,6 +5730,22 @@
             fontSize: '12px',
             color: '#8fa7c7'
         });
+
+        let selectedValue = 'default';
+        let isOpen = false;
+
+        const setOpenState = (nextOpen) => {
+            isOpen = !!nextOpen;
+            menu.style.display = isOpen ? 'flex' : 'none';
+            trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            trigger.style.borderColor = isOpen ? '#6fb3ff' : 'rgba(104,134,173,0.75)';
+            trigger.style.boxShadow = isOpen
+                ? '0 0 0 2px rgba(111,179,255,0.18), inset 0 1px 0 rgba(255,255,255,0.05)'
+                : 'inset 0 1px 0 rgba(255,255,255,0.04)';
+            triggerIcon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        };
+
+        const optionButtons = [];
 
         const syncStatus = () => {
             let selected = normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
@@ -5684,24 +5757,101 @@
             } catch (_) {}
             const option = THEME_OPTIONS.find((entry) => entry.value === selected);
             status.textContent = `Active theme: ${option ? option.label : selected}`;
-            select.value = option ? option.value : 'default';
+            selectedValue = option ? option.value : 'default';
+            triggerText.textContent = option ? option.label : 'System Default';
+            optionButtons.forEach(({ value, button }) => {
+                const active = value === selectedValue;
+                button.setAttribute('aria-selected', active ? 'true' : 'false');
+                Object.assign(button.style, active ? {
+                    background: 'linear-gradient(180deg, rgba(52,110,191,0.92), rgba(35,87,162,0.92))',
+                    color: '#ffffff',
+                    borderColor: 'rgba(118,170,255,0.95)',
+                    boxShadow: '0 8px 18px rgba(17,79,168,0.34)'
+                } : {
+                    background: 'rgba(255,255,255,0.02)',
+                    color: '#dbe7f7',
+                    borderColor: 'transparent',
+                    boxShadow: 'none'
+                });
+            });
         };
 
         THEME_OPTIONS.forEach((option) => {
-            const optionEl = document.createElement('option');
-            optionEl.value = option.value;
-            optionEl.textContent = option.label;
-            select.appendChild(optionEl);
+            const optionBtn = document.createElement('button');
+            optionBtn.type = 'button';
+            optionBtn.setAttribute('role', 'option');
+            optionBtn.dataset.themeValue = option.value;
+            optionBtn.textContent = option.label;
+            Object.assign(optionBtn.style, {
+                width: '100%',
+                minHeight: '38px',
+                padding: '9px 12px',
+                borderRadius: '10px',
+                border: '1px solid transparent',
+                background: 'rgba(255,255,255,0.02)',
+                color: '#dbe7f7',
+                font: '700 12px/18px Arial, Helvetica, sans-serif',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease'
+            });
+            optionBtn.addEventListener('mouseenter', () => {
+                if (option.value === selectedValue) return;
+                optionBtn.style.background = 'rgba(255,255,255,0.07)';
+                optionBtn.style.borderColor = 'rgba(104,134,173,0.38)';
+            });
+            optionBtn.addEventListener('mouseleave', () => {
+                if (option.value === selectedValue) return;
+                optionBtn.style.background = 'rgba(255,255,255,0.02)';
+                optionBtn.style.borderColor = 'transparent';
+            });
+            optionBtn.addEventListener('click', () => {
+                const nextTheme = applyPreferredThemeFromController(option.value);
+                setOpenState(false);
+                syncStatus();
+                showToast(`Theme set to ${(THEME_OPTIONS.find((entry) => entry.value === nextTheme) || {}).label || nextTheme}.`, 'success');
+            });
+            optionButtons.push({ value: option.value, button: optionBtn });
+            menu.appendChild(optionBtn);
         });
 
-        select.addEventListener('change', () => {
-            const nextTheme = applyPreferredThemeFromController(select.value || 'default');
-            syncStatus();
-            showToast(`Theme set to ${(THEME_OPTIONS.find((entry) => entry.value === nextTheme) || {}).label || nextTheme}.`, 'success');
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpenState(!isOpen);
+        });
+
+        trigger.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setOpenState(false);
+                return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setOpenState(!isOpen);
+            }
+        });
+
+        menu.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+
+        card.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') setOpenState(false);
+        });
+
+        document.addEventListener('click', () => {
+            if (!isOpen) return;
+            setOpenState(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isOpen) setOpenState(false);
         });
 
         syncStatus();
-        fieldWrap.append(selectLabel, select);
+        dropdownWrap.append(trigger, menu);
+        fieldWrap.append(selectLabel, dropdownWrap);
         head.append(title, subtitle);
         card.append(head, fieldWrap, status);
         return card;
