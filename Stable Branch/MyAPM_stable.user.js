@@ -338,22 +338,27 @@
         }
     }
 
-    function sanitizeApmThemeUrl(rawUrl, depth = 0) {
+    function sanitizeApmThemeUrl(rawUrl, replacementTheme = '', depth = 0) {
         if (!rawUrl || depth > 4) return { changed: false, url: String(rawUrl || ''), theme: '' };
         try {
             const parsed = new URL(String(rawUrl), location.href);
             let changed = false;
             let detectedTheme = '';
+            const nextTheme = normalizeThemeValue(replacementTheme || '');
             const directTheme = parsed.searchParams.get('uitheme');
             if (directTheme) {
                 detectedTheme = normalizeThemeValue(directTheme);
-                parsed.searchParams.delete('uitheme');
+                if (nextTheme && nextTheme !== 'default') {
+                    parsed.searchParams.set('uitheme', nextTheme);
+                } else {
+                    parsed.searchParams.delete('uitheme');
+                }
                 changed = true;
             }
 
             const serviceValue = parsed.searchParams.get('service');
             if (serviceValue) {
-                const nested = sanitizeApmThemeUrl(serviceValue, depth + 1);
+                const nested = sanitizeApmThemeUrl(serviceValue, nextTheme, depth + 1);
                 if (!detectedTheme && nested.theme) detectedTheme = nested.theme;
                 if (nested.changed) {
                     parsed.searchParams.set('service', nested.url);
@@ -367,7 +372,11 @@
                 if (!detectedTheme && nestedTheme) detectedTheme = nestedTheme;
                 const nestedParams = new URLSearchParams(String(emailQueryString || ''));
                 if (nestedParams.has('uitheme')) {
-                    nestedParams.delete('uitheme');
+                    if (nextTheme && nextTheme !== 'default') {
+                        nestedParams.set('uitheme', nextTheme);
+                    } else {
+                        nestedParams.delete('uitheme');
+                    }
                     parsed.searchParams.set('EMAILQUERYSTRING', nestedParams.toString());
                     changed = true;
                 }
@@ -395,11 +404,10 @@
     }
 
     function maybeRelaunchConflictingThemeUrl() {
-        const sanitized = sanitizeApmThemeUrl(location.href);
+        const preferredTheme = normalizeThemeValue(getPreferredTheme());
+        const sanitized = sanitizeApmThemeUrl(location.href, preferredTheme);
         const urlTheme = sanitized.theme || getUrlThemeValue(location);
         if (!urlTheme) return false;
-
-        const preferredTheme = normalizeThemeValue(getPreferredTheme());
         if (!preferredTheme || preferredTheme === urlTheme) return false;
         if (!canRelaunchPinnedThemePage(location)) return false;
         if (!sanitized.changed) return false;
