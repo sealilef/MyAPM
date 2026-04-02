@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.4_stable
+// @version      0.4.5_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -16,7 +16,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        unsafeWindow
-// @run-at       document-end
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.4_stable';
+    const CURRENT_VERSION = '0.4.5_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -93,12 +93,8 @@
     const REORDER_BUTTON_ID = 'myapm-layout-reorder-button';
     const THEME_STORAGE_KEY = 'myapmThemePreference';
     const LEGACY_THEME_STORAGE_KEY = 'apmTheme';
-    const THEME_MESSAGE_TYPE = 'MYAPM_SET_THEME';
-    const THEME_REQUEST_MESSAGE_TYPE = 'MYAPM_GET_THEME';
     const THEME_STYLE_ID = 'myapm-theme-root-vars';
     const THEME_FLASH_STYLE_ID = 'myapm-theme-flash-guard';
-    const THEME_SENTINEL_KEY = '__myapmThemeSentinel';
-    const THEME_URL_RELAUNCH_GUARD_KEY = 'myapmThemeUrlRelaunchGuard';
     const THEME_MANIFEST_HOOK_KEY = '__myapmThemeManifestHook';
     const THEME_EAM_HOOK_KEY = '__myapmThemeEamHook';
     const THEME_ORIGINAL_MANIFEST_KEY = '__myapmOriginalManifest';
@@ -167,13 +163,7 @@
     const themeState = {
         activeTheme: null,
         bound: false,
-        applying: false,
-        sentinel: null,
-        hooksApplied: false,
-        hookPollTimeout: null,
-        hookPollInterval: null,
-        broadcastInterval: null,
-        enforceTimeouts: []
+        applying: false
     };
     try {
         window.__myapmThemeState = themeState;
@@ -234,37 +224,36 @@
         return DARK_THEME_VALUES.has(String(themeValue || '').toLowerCase());
     }
 
-    function isTrustedThemeOrigin(origin) {
-        try {
-            const parsed = new URL(String(origin || ''), location.href);
-            const host = String(parsed.hostname || '').toLowerCase();
-            return host === location.hostname.toLowerCase()
-                || host.endsWith('.eam.hxgnsmartcloud.com')
-                || host.endsWith('.eam.aws.a2z.com')
-                || host.endsWith('.insights.amazon.dev')
-                || host.endsWith('.apm-es.gps.amazon.dev');
-        } catch (_) {
-            return false;
-        }
-    }
-
-    function postThemeMessage(targetWindow, payload) {
-        if (!targetWindow || typeof targetWindow.postMessage !== 'function') return;
-        try {
-            targetWindow.postMessage(payload, '*');
-        } catch (_) {}
-    }
-
     function normalizeThemeValue(themeValue) {
         const raw = cleanText(themeValue || '').toLowerCase();
-        if (!raw || raw === 'system default') return 'default';
+        if (!raw || raw === 'system default' || raw === 'theme-default') return 'default';
         const match = THEME_OPTIONS.find((option) => option.value.toLowerCase() === raw);
         return match ? match.value : 'default';
     }
 
     function getThemeManifestPath(themeValue) {
         const normalized = normalizeThemeValue(themeValue);
-        return normalized === 'default' ? '' : `eam/${normalized}.json`;
+        return `eam/${getNativeThemeValue(normalized)}.json`;
+    }
+
+    function getNativeThemeValue(themeValue) {
+        const normalized = normalizeThemeValue(themeValue);
+        return normalized === 'default' ? 'theme-default' : normalized;
+    }
+
+    function sanitizeThemeCssPath(rawValue) {
+        const value = String(rawValue ?? '').trim();
+        if (!value) return 'theme-default';
+        return normalizeThemeValue(value) === 'default' ? 'theme-default' : value;
+    }
+
+    function sanitizeThemeManifestValue(rawValue) {
+        const value = String(rawValue ?? '').trim();
+        if (!value) return 'eam/theme-default.json';
+        const lowerValue = value.toLowerCase();
+        if (normalizeThemeValue(value) === 'default') return 'eam/theme-default.json';
+        if (/\/?eam\/theme-[^/?#]+\.json(?:[?#].*)?$/.test(lowerValue)) return 'eam/theme-default.json';
+        return value;
     }
 
     function readThemeStorage(key) {
@@ -300,98 +289,9 @@
         } catch (_) {}
     }
 
-    function removeThemeStorage(key) {
-        try {
-            const topStorage = PAGE_WINDOW.top && PAGE_WINDOW.top.localStorage ? PAGE_WINDOW.top.localStorage : null;
-            if (topStorage) topStorage.removeItem(key);
-        } catch (_) {}
-        try {
-            localStorage.removeItem(key);
-        } catch (_) {}
-        try {
-            if (typeof GM_setValue === 'function') GM_setValue(key, '');
-        } catch (_) {}
-    }
-
     function getPreferredTheme() {
         const current = normalizeThemeValue(readThemeStorage(THEME_STORAGE_KEY) || readThemeStorage(LEGACY_THEME_STORAGE_KEY) || 'default');
         return current;
-    }
-
-    function getUrlThemeValue(targetLocation = location) {
-        try {
-            const params = new URLSearchParams(String(targetLocation && targetLocation.search || ''));
-            const value = params.get('uitheme');
-            return value ? normalizeThemeValue(value) : '';
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function getNestedQueryThemeValue(rawQueryString) {
-        try {
-            const params = new URLSearchParams(String(rawQueryString || ''));
-            const value = params.get('uitheme');
-            return value ? normalizeThemeValue(value) : '';
-        } catch (_) {
-            return '';
-        }
-    }
-
-    function sanitizeApmThemeUrl(rawUrl, depth = 0) {
-        if (!rawUrl || depth > 4) return { changed: false, url: String(rawUrl || ''), theme: '' };
-        try {
-            const parsed = new URL(String(rawUrl), location.href);
-            let changed = false;
-            let detectedTheme = '';
-            const directTheme = parsed.searchParams.get('uitheme');
-            if (directTheme) {
-                detectedTheme = normalizeThemeValue(directTheme);
-                parsed.searchParams.delete('uitheme');
-                changed = true;
-            }
-
-            const serviceValue = parsed.searchParams.get('service');
-            if (serviceValue) {
-                const nested = sanitizeApmThemeUrl(serviceValue, depth + 1);
-                if (!detectedTheme && nested.theme) detectedTheme = nested.theme;
-                if (nested.changed) {
-                    parsed.searchParams.set('service', nested.url);
-                    changed = true;
-                }
-            }
-
-            const emailQueryString = parsed.searchParams.get('EMAILQUERYSTRING');
-            if (emailQueryString) {
-                const nestedTheme = getNestedQueryThemeValue(emailQueryString);
-                if (!detectedTheme && nestedTheme) detectedTheme = nestedTheme;
-                const nestedParams = new URLSearchParams(String(emailQueryString || ''));
-                if (nestedParams.has('uitheme')) {
-                    nestedParams.delete('uitheme');
-                    parsed.searchParams.set('EMAILQUERYSTRING', nestedParams.toString());
-                    changed = true;
-                }
-            }
-
-            return {
-                changed,
-                url: parsed.toString(),
-                theme: detectedTheme
-            };
-        } catch (_) {
-            return { changed: false, url: String(rawUrl || ''), theme: '' };
-        }
-    }
-
-    function canRelaunchPinnedThemePage(targetLocation = location) {
-        try {
-            const pathname = String(targetLocation && targetLocation.pathname || '').toLowerCase();
-            return pathname.includes('/web/base/logindisp')
-                || pathname.includes('/web/base/ssoservlet')
-                || pathname.includes('/sso/samlconnect');
-        } catch (_) {
-            return false;
-        }
     }
 
     function maybeRelaunchConflictingThemeUrl() {
@@ -400,12 +300,9 @@
 
     function setTopThemeParam(themeValue) {
         const normalized = normalizeThemeValue(themeValue);
-        if (normalized === 'default') {
-            removeThemeStorage(LEGACY_THEME_STORAGE_KEY);
-        } else {
-            writeThemeStorage(LEGACY_THEME_STORAGE_KEY, normalized);
-        }
-        writeThemeStorage(THEME_STORAGE_KEY, normalized);
+        const storedThemeValue = getNativeThemeValue(normalized);
+        writeThemeStorage(LEGACY_THEME_STORAGE_KEY, storedThemeValue);
+        writeThemeStorage(THEME_STORAGE_KEY, storedThemeValue);
     }
 
     function applyThemeVisualHints(themeValue) {
@@ -438,40 +335,13 @@
         return normalizeThemeValue(themeState.activeTheme || getPreferredTheme());
     }
 
-    function stripPinnedThemeFromAddressBar(targetWindow = window) {
-        try {
-            const href = String(targetWindow.location && targetWindow.location.href || '');
-            if (!href) return;
-            const sanitized = sanitizeApmThemeUrl(href);
-            if (!sanitized.changed || !sanitized.url || sanitized.url === href) return;
-            if (targetWindow.history && typeof targetWindow.history.replaceState === 'function') {
-                targetWindow.history.replaceState(targetWindow.history.state, targetWindow.document ? targetWindow.document.title : '', sanitized.url);
-            }
-        } catch (_) {}
-    }
-
-    function getDefaultThemeStylesheetHref(href) {
-        const rawHref = String(href || '');
-        if (!rawHref) return '';
-        let nextHref = rawHref;
-        nextHref = nextHref.replace(/(theme-)(darkblue|dark|orange|hex-dark)[^./?#]*/i, '$1triton');
-        nextHref = nextHref.replace(/(ext-theme-)(darkblue|dark|orange|hex-dark)[^./?#]*/i, '$1triton');
-        nextHref = nextHref.replace(/\b(darkblue|dark|orange|hex-dark)\b/i, 'triton');
-        return nextHref;
-    }
-
     function enforcePreferredThemeState(themeValue, options = {}) {
         const normalized = normalizeThemeValue(themeValue);
         if (options.persist !== false) setTopThemeParam(normalized);
-        enforceThemeLinks(normalized);
-        if (normalized === 'default') {
-            hookThemeTargets(window);
-            stripPinnedThemeFromAddressBar(window);
-            clearThemeArtifacts(document);
-            return;
-        }
-        applyThemeVisualHints(normalized);
-        hookThemeTargets(window);
+        try { hookThemeTargets(window); } catch (_) {}
+        try { enforceThemeLinks(normalized, document); } catch (_) {}
+        if (normalized === 'default') clearThemeArtifacts(document);
+        else applyThemeVisualHints(normalized);
     }
 
     function clearThemeArtifacts(doc = document) {
@@ -484,25 +354,14 @@
 
     function enforceThemeLinks(themeValue, doc = document) {
         const normalized = normalizeThemeValue(themeValue);
+        const themeSlug = getNativeThemeValue(normalized).replace(/^theme-/i, '');
         doc.querySelectorAll('link[rel="stylesheet"]').forEach((node) => {
             const href = String(node.getAttribute('href') || '');
             if (!href) return;
             const lowerHref = href.toLowerCase();
             if (!/(\/theme-|\/ext-theme-|neptune|crisp|triton)/.test(lowerHref)) return;
 
-            if (normalized === 'default') {
-                if (node.dataset.myapmOriginalHref) {
-                    const originalHref = String(node.dataset.myapmOriginalHref || '').trim();
-                    if (originalHref && originalHref !== href) node.href = originalHref;
-                    return;
-                }
-                const defaultHref = getDefaultThemeStylesheetHref(href);
-                if (defaultHref && defaultHref !== href) node.href = defaultHref;
-                return;
-            }
-
             if (!node.dataset.myapmOriginalHref) node.dataset.myapmOriginalHref = href;
-            const themeSlug = normalized.replace(/^theme-/i, '');
             let nextHref = href;
             nextHref = nextHref.replace(/(theme-)[^./?#]+/i, `$1${themeSlug}`);
             nextHref = nextHref.replace(/(ext-theme-)[^./?#]+/i, `$1${themeSlug}`);
@@ -511,63 +370,72 @@
         });
     }
 
+    function collectThemeTargets() {
+        const targets = [];
+        const push = (candidate) => {
+            if (!candidate || targets.includes(candidate)) return;
+            targets.push(candidate);
+        };
+
+        try { push(window); } catch (_) {}
+        try { push(PAGE_WINDOW); } catch (_) {}
+        try { push(PAGE_WINDOW && PAGE_WINDOW.top); } catch (_) {}
+        try {
+            const ctx = getActiveAPMContext();
+            push(ctx && ctx.appWin);
+            push(ctx && ctx.topWin);
+        } catch (_) {}
+
+        return targets;
+    }
+
     function hookThemeTargets(targetWindow) {
         const patchEam = (eamObj) => {
             if (!eamObj) return;
             if (!eamObj[THEME_EAM_HOOK_KEY]) {
                 try {
-                    eamObj[THEME_ORIGINAL_CSS_PATH_KEY] = eamObj.CSS_PATH;
+                    eamObj[THEME_ORIGINAL_CSS_PATH_KEY] = sanitizeThemeCssPath(eamObj.CSS_PATH);
                 } catch (_) {}
                 try {
                     Object.defineProperty(eamObj, 'CSS_PATH', {
                         configurable: true,
                         enumerable: true,
                         get: () => {
-                            const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                            return activeTheme === 'default' ? '' : activeTheme;
+                            return getNativeThemeValue(themeState.activeTheme || 'default');
                         },
                         set: (nextValue) => {
-                            try { eamObj[THEME_ORIGINAL_CSS_PATH_KEY] = nextValue; } catch (_) {}
+                            try { eamObj[THEME_ORIGINAL_CSS_PATH_KEY] = sanitizeThemeCssPath(nextValue); } catch (_) {}
                         }
                     });
                 } catch (_) {}
                 eamObj[THEME_EAM_HOOK_KEY] = true;
-            } else {
-                try {
-                    const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                    if (activeTheme === 'default') eamObj.CSS_PATH = '';
-                } catch (_) {}
             }
+            try { eamObj.CSS_PATH = getNativeThemeValue(themeState.activeTheme || 'default'); } catch (_) {}
         };
 
         const patchExt = (extObj) => {
             if (!extObj) return;
             if (!extObj[THEME_MANIFEST_HOOK_KEY]) {
                 try {
-                    extObj[THEME_ORIGINAL_MANIFEST_KEY] = extObj.manifest;
+                    extObj[THEME_ORIGINAL_MANIFEST_KEY] = sanitizeThemeManifestValue(extObj.manifest);
                     Object.defineProperty(extObj, 'manifest', {
                         configurable: true,
                         enumerable: true,
-                        get: () => {
-                            const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                            return activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
-                        },
+                        get: () => getThemeManifestPath(themeState.activeTheme || 'default'),
                         set: (nextValue) => {
-                            try { extObj[THEME_ORIGINAL_MANIFEST_KEY] = nextValue; } catch (_) {}
+                            try { extObj[THEME_ORIGINAL_MANIFEST_KEY] = sanitizeThemeManifestValue(nextValue); } catch (_) {}
                         }
                     });
                 } catch (_) {
                     try {
-                        const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                        extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
+                        extObj.manifest = getThemeManifestPath(themeState.activeTheme || 'default');
                     } catch (_) {}
                 }
                 try {
                     extObj[THEME_ORIGINAL_BEFORELOAD_KEY] = extObj.beforeLoad;
                     extObj[THEME_BEFORELOAD_WRAPPER_KEY] = function(...args) {
-                        const activeTheme = normalizeThemeValue(themeState.activeTheme);
                         try {
-                            extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
+                            extObj.manifest = getThemeManifestPath(themeState.activeTheme || 'default');
                         } catch (_) {}
                         const originalBeforeLoad = extObj[THEME_ORIGINAL_BEFORELOAD_KEY];
                         if (typeof originalBeforeLoad === 'function') {
@@ -587,12 +455,8 @@
                     });
                 } catch (_) {}
                 extObj[THEME_MANIFEST_HOOK_KEY] = true;
-            } else {
-                try {
-                    const activeTheme = normalizeThemeValue(themeState.activeTheme);
-                    extObj.manifest = activeTheme === 'default' ? '' : getThemeManifestPath(activeTheme);
-                } catch (_) {}
             }
+            try { extObj.manifest = getThemeManifestPath(themeState.activeTheme || 'default'); } catch (_) {}
         };
 
         try {
@@ -623,153 +487,32 @@
                 }
             });
         } catch (_) {}
-
-        try {
-            themeState.hooksApplied = !!(targetWindow && targetWindow.Ext && targetWindow.EAM);
-        } catch (_) {
-            themeState.hooksApplied = false;
-        }
     }
 
-    function scheduleThemeHookPolling(targetWindow = window) {
-        clearTimeout(themeState.hookPollTimeout);
-        if (themeState.hookPollInterval) {
-            clearInterval(themeState.hookPollInterval);
-            themeState.hookPollInterval = null;
-        }
-
-        let quickPollCount = 0;
-        const quickPoll = () => {
-            if (!targetWindow || targetWindow.closed) return;
-            try {
-                hookThemeTargets(targetWindow);
-                if (themeState.hooksApplied) return;
-            } catch (_) {}
-            quickPollCount += 1;
-            if (quickPollCount < 200) {
-                themeState.hookPollTimeout = setTimeout(quickPoll, 50);
-                return;
-            }
-            let slowPollCount = 0;
-            themeState.hookPollInterval = setInterval(() => {
-                if (!targetWindow || targetWindow.closed) {
-                    clearInterval(themeState.hookPollInterval);
-                    themeState.hookPollInterval = null;
-                    return;
-                }
+    function schedulePostLoadThemeSweep(themeValue = getDesiredThemeValue()) {
+        const normalized = normalizeThemeValue(themeValue);
+        const sweep = () => {
+            try { hookThemeTargets(window); } catch (_) {}
+            collectThemeTargets().forEach((targetWindow) => {
                 try {
-                    hookThemeTargets(targetWindow);
-                    if (themeState.hooksApplied) {
-                        clearInterval(themeState.hookPollInterval);
-                        themeState.hookPollInterval = null;
-                        return;
+                    if (targetWindow && targetWindow.document) {
+                        enforceThemeLinks(getDesiredThemeValue() || normalized, targetWindow.document);
                     }
                 } catch (_) {}
-                slowPollCount += 1;
-                if (slowPollCount >= 60) {
-                    clearInterval(themeState.hookPollInterval);
-                    themeState.hookPollInterval = null;
-                }
-            }, 5000);
-        };
-
-        quickPoll();
-    }
-
-    function ensureThemeSentinel(themeValue) {
-        const normalized = normalizeThemeValue(themeValue);
-        if (themeState.sentinel) {
-            try { themeState.sentinel.disconnect(); } catch (_) {}
-            themeState.sentinel = null;
-            window[THEME_SENTINEL_KEY] = null;
-        }
-        if (normalized === 'default') return;
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                (mutation.addedNodes || []).forEach((node) => {
-                    if (!node || node.nodeType !== 1) return;
-                    if (node.tagName === 'LINK') enforceThemeLinks(themeState.activeTheme || normalized);
-                    if (typeof node.querySelectorAll === 'function' && node.querySelectorAll('link[rel="stylesheet"]').length) {
-                        enforceThemeLinks(themeState.activeTheme || normalized);
-                    }
-                    if (node.tagName === 'IFRAME') {
-                        postThemeMessage(node.contentWindow, { type: THEME_MESSAGE_TYPE, theme: themeState.activeTheme || normalized });
-                    }
-                });
-            });
-        });
-        try {
-            observer.observe(document.documentElement, {
-                childList: true,
-                subtree: true
-            });
-            window[THEME_SENTINEL_KEY] = observer;
-            themeState.sentinel = observer;
-        } catch (_) {}
-    }
-
-    function clearThemeEnforcementBurst() {
-        themeState.enforceTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
-        themeState.enforceTimeouts = [];
-    }
-
-    function scheduleThemeEnforcementBurst(themeValue) {
-        const normalized = normalizeThemeValue(themeValue);
-        clearThemeEnforcementBurst();
-        [0, 120, 350, 900, 1800].forEach((delayMs) => {
-            const timeoutId = setTimeout(() => {
-                try {
-                    enforcePreferredThemeState(getDesiredThemeValue() || normalized, { persist: false });
-                } catch (_) {}
-            }, delayMs);
-            themeState.enforceTimeouts.push(timeoutId);
-        });
-    }
-
-    function broadcastThemeToFrames(themeValue) {
-        const normalized = normalizeThemeValue(themeValue);
-        const send = () => {
-            Array.from(window.frames || []).forEach((frame) => {
-                postThemeMessage(frame, { type: THEME_MESSAGE_TYPE, theme: normalized });
             });
         };
-        send();
-        if (window.top !== window.self) return;
-        if (themeState.broadcastInterval) {
-            clearInterval(themeState.broadcastInterval);
-            themeState.broadcastInterval = null;
-        }
-        let attempts = 0;
-        themeState.broadcastInterval = setInterval(() => {
-            send();
-            attempts += 1;
-            if (attempts >= 5) {
-                clearInterval(themeState.broadcastInterval);
-                themeState.broadcastInterval = null;
-            }
-        }, 1000);
+
+        [0, 250, 1000, 2500, 5000].forEach((delayMs) => setTimeout(sweep, delayMs));
     }
 
     function applyPreferredTheme(themeValue, options = {}) {
         const normalized = normalizeThemeValue(themeValue);
-        if (themeState.applying && themeState.activeTheme === normalized) return;
+        if (themeState.applying && themeState.activeTheme === normalized && options.persist === false) return;
         themeState.applying = true;
         themeState.activeTheme = normalized;
         try {
             enforcePreferredThemeState(normalized, options);
-            ensureThemeSentinel(normalized);
-            scheduleThemeEnforcementBurst(normalized);
-            if (normalized === 'default') {
-                clearTimeout(themeState.hookPollTimeout);
-                if (themeState.hookPollInterval) {
-                    clearInterval(themeState.hookPollInterval);
-                    themeState.hookPollInterval = null;
-                }
-                themeState.hooksApplied = false;
-            } else {
-                scheduleThemeHookPolling(window);
-            }
-            if (!options.skipBroadcast) broadcastThemeToFrames(normalized);
+            schedulePostLoadThemeSweep(normalized);
         } finally {
             themeState.applying = false;
         }
@@ -797,14 +540,10 @@
         return normalized;
     }
 
-    function requestThemeFromTop() {
-        if (window.top === window.self) return;
-        postThemeMessage(window.top, { type: THEME_REQUEST_MESSAGE_TYPE });
-    }
-
     function initThemeSystem() {
         if (themeState.bound) return;
         themeState.bound = true;
+        const preferredTheme = getPreferredTheme();
 
         try {
             window.__myapmApplyPreferredTheme = (themeValue) => {
@@ -812,41 +551,15 @@
             };
         } catch (_) {}
 
-        window.addEventListener('message', (event) => {
-            if (!isTrustedThemeOrigin(event.origin)) return;
-            const data = event.data || {};
-            if (data.type === THEME_MESSAGE_TYPE) {
-                const incomingTheme = normalizeThemeValue(data.theme || data.value || 'default');
-                if (window.top === window.self) {
-                    // The top window is the source of truth. Child frames can request theme,
-                    // but they should never be able to push a stale theme back into the host.
-                    return;
-                }
-                applyPreferredTheme(incomingTheme, { skipBroadcast: true, persist: false });
-            } else if (data.type === THEME_REQUEST_MESSAGE_TYPE && window.top === window.self) {
-                postThemeMessage(event.source, { type: THEME_MESSAGE_TYPE, theme: themeState.activeTheme || getPreferredTheme() });
-            }
-        });
-
         window.addEventListener('storage', (event) => {
             if (!event || (event.key !== THEME_STORAGE_KEY && event.key !== LEGACY_THEME_STORAGE_KEY)) return;
             const incomingTheme = normalizeThemeValue(event.newValue || 'default');
             if (incomingTheme !== normalizeThemeValue(themeState.activeTheme || '')) {
-                applyPreferredTheme(incomingTheme, { skipBroadcast: window.top !== window.self, persist: false });
+                applyPreferredTheme(incomingTheme, { persist: false });
             }
         });
 
-        applyPreferredTheme(getPreferredTheme(), { skipBroadcast: true });
-        if (window.top !== window.self) {
-            let attempts = 0;
-            const requestLoop = () => {
-                if (normalizeThemeValue(themeState.activeTheme) !== 'default') return;
-                requestThemeFromTop();
-                attempts += 1;
-                if (attempts < 15) setTimeout(requestLoop, 1000);
-            };
-            requestLoop();
-        }
+        applyPreferredTheme(preferredTheme);
     }
 
     const FLOWS = {
@@ -6306,7 +6019,16 @@
 
     initThemeSystem();
 
+    window.addEventListener('DOMContentLoaded', () => {
+        schedulePostLoadThemeSweep(getDesiredThemeValue());
+    }, { once: true });
+
+    window.addEventListener('load', () => {
+        schedulePostLoadThemeSweep(getDesiredThemeValue());
+    }, { once: true });
+
     window.addEventListener('pageshow', () => {
+        schedulePostLoadThemeSweep(getDesiredThemeValue());
         if (isUiMutationFrozen()) return;
         const pendingResize = peekGridResizeRequest(45000);
         if (pendingResize) scheduleGridResizeRetries(pendingResize.reason || 'pageshow', GRID_RESIZE_RETRY_COUNT + 4, 500);
