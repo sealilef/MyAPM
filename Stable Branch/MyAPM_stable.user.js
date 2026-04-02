@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.5_stable
+// @version      0.4.6_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.5_stable';
+    const CURRENT_VERSION = '0.4.6_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -153,7 +153,7 @@
     let uiMutationFreezeUntil = 0;
 
     const THEME_OPTIONS = [
-        { value: 'default', label: 'System Default' },
+        { value: 'default', label: 'Default' },
         { value: 'theme-dark', label: 'Dark' },
         { value: 'theme-darkblue', label: 'Dark Blue' },
         { value: 'theme-orange', label: 'Orange' },
@@ -205,8 +205,8 @@
         ensureDueWindowDefaults();
         const mode = (localStorage.getItem(config.modeKey) || 'today').toLowerCase();
         const customDays = clampDueDays(localStorage.getItem(config.customKey) || '7');
-        const daysAhead = mode === 'today' ? 0 : mode === 'custom' ? customDays : 7;
-        const label = mode === 'today' ? 'Today' : mode === 'custom' ? `Custom (${customDays} days)` : '7 Days';
+        const daysAhead = mode === 'today' ? 0 : mode === 'custom' ? customDays : mode === '4' ? 4 : 7;
+        const label = mode === 'today' ? 'Today' : mode === 'custom' ? `Custom (${customDays} days)` : mode === '4' ? '4 Days' : '7 Days';
         return { mode, customDays, daysAhead, label, config };
     }
 
@@ -308,13 +308,179 @@
     function applyThemeVisualHints(themeValue) {
         const normalized = normalizeThemeValue(themeValue);
         const dark = isDarkTheme(normalized);
+        const uiMode = dark ? 'dark' : 'light';
+        const palette = dark ? {
+            btnBg: 'linear-gradient(to bottom, #27364b, #1a2534)',
+            btnBgHover: 'linear-gradient(to bottom, #355073, #253a55)',
+            btnText: '#eaf0ff',
+            btnBorder: '#3d526d',
+            btnShadow: '0 4px 14px rgba(0,0,0,0.35)',
+            panelBg: 'linear-gradient(180deg, #172334, #0f1724)',
+            panelBorder: 'rgba(76, 102, 135, 0.9)',
+            cardBg: 'linear-gradient(180deg, rgba(28,43,64,0.96), rgba(17,27,40,0.96))',
+            cardBorder: 'rgba(88,118,156,0.45)',
+            surface: '#0a1524',
+            surfaceAlt: 'rgba(39,54,75,0.65)',
+            surfaceSoft: 'rgba(255,255,255,0.08)',
+            surfaceStrong: '#0f1723',
+            text: '#eaf0ff',
+            textMuted: '#d6deee',
+            textSubtle: '#9fb0c4',
+            heading: '#f4f8ff',
+            link: '#7fb7ff',
+            inputBg: '#0f1723',
+            inputText: '#eaf0ff',
+            inputBorder: '#6e86a6',
+            inputFocus: '#6fb3ff',
+            inputFocusRing: 'rgba(111,179,255,0.18)',
+            pillBg: 'rgba(255,255,255,0.08)',
+            pillBorder: 'rgba(255,255,255,0.18)',
+            tableHeadBg: '#0a1524',
+            tableBorder: '#304258',
+            rowBorder: 'rgba(61,82,109,0.6)',
+            rowHover: 'rgba(53,80,115,0.18)',
+            overlay: 'rgba(5,10,18,0.58)',
+            activeBg: 'rgba(20,110,180,0.35)',
+            activeBorder: 'rgba(20,110,180,0.65)',
+            warnBg: 'rgba(255,77,77,0.12)',
+            warnBorder: 'rgba(255,77,77,0.55)',
+            warnHeadBg: 'rgba(75,18,18,0.72)',
+            warnText: '#ffe3e3',
+            warnHeading: '#ff7373',
+            overdueBg: 'rgba(255,179,71,0.13)',
+            overdueBorder: 'rgba(255,179,71,0.65)',
+            overdueHeadBg: 'rgba(93,56,8,0.72)',
+            overdueText: '#ffe7c2',
+            overdueHeading: '#ffb347',
+            copyBg: 'rgba(228,121,17,0.18)',
+            copyBgHover: 'rgba(228,121,17,0.34)',
+            copyBorder: 'rgba(255,179,71,0.75)',
+            copyText: '#ffb347',
+            copyTextHover: '#ffd18a',
+            accent: '#2d8cff',
+            accentStrong: '#1b63d0',
+            accentText: '#ffffff',
+            infoBg: '#223247',
+            successBg: '#1f7a1f',
+            errorBg: '#b3261e'
+        } : {
+            btnBg: 'linear-gradient(to bottom, #fdfefe, #e8eef5)',
+            btnBgHover: 'linear-gradient(to bottom, #f8fbff, #dde7f2)',
+            btnText: '#1c2b3a',
+            btnBorder: '#b6c6d8',
+            btnShadow: '0 6px 18px rgba(35,55,80,0.14)',
+            panelBg: 'linear-gradient(180deg, #ffffff, #eef4fa)',
+            panelBorder: 'rgba(171, 188, 207, 0.95)',
+            cardBg: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,248,252,0.98))',
+            cardBorder: 'rgba(188,205,223,0.9)',
+            surface: '#ffffff',
+            surfaceAlt: 'rgba(233,240,247,0.92)',
+            surfaceSoft: 'rgba(24,48,78,0.05)',
+            surfaceStrong: '#f4f8fc',
+            text: '#1b2a38',
+            textMuted: '#33465a',
+            textSubtle: '#607487',
+            heading: '#12202d',
+            link: '#146eb4',
+            inputBg: '#ffffff',
+            inputText: '#18212b',
+            inputBorder: '#b6c6d8',
+            inputFocus: '#146eb4',
+            inputFocusRing: 'rgba(20,110,180,0.18)',
+            pillBg: 'rgba(20,110,180,0.08)',
+            pillBorder: 'rgba(20,110,180,0.18)',
+            tableHeadBg: '#eef4fa',
+            tableBorder: '#c9d7e5',
+            rowBorder: 'rgba(189,205,220,0.8)',
+            rowHover: 'rgba(20,110,180,0.08)',
+            overlay: 'rgba(104,123,145,0.28)',
+            activeBg: 'rgba(20,110,180,0.14)',
+            activeBorder: 'rgba(20,110,180,0.35)',
+            warnBg: 'rgba(255,242,240,0.96)',
+            warnBorder: 'rgba(214,97,97,0.42)',
+            warnHeadBg: 'rgba(255,228,225,0.98)',
+            warnText: '#7a2f2f',
+            warnHeading: '#b54848',
+            overdueBg: 'rgba(255,248,237,0.98)',
+            overdueBorder: 'rgba(222,158,65,0.46)',
+            overdueHeadBg: 'rgba(255,238,205,0.98)',
+            overdueText: '#7b5a19',
+            overdueHeading: '#b7791f',
+            copyBg: 'rgba(228,121,17,0.10)',
+            copyBgHover: 'rgba(228,121,17,0.18)',
+            copyBorder: 'rgba(228,121,17,0.38)',
+            copyText: '#b86910',
+            copyTextHover: '#8f520b',
+            accent: '#146eb4',
+            accentStrong: '#0d4f8b',
+            accentText: '#ffffff',
+            infoBg: '#29486b',
+            successBg: '#1f8f4d',
+            errorBg: '#b63b3b'
+        };
         let varsStyle = document.getElementById(THEME_STYLE_ID);
         if (!varsStyle) {
             varsStyle = document.createElement('style');
             varsStyle.id = THEME_STYLE_ID;
             (document.head || document.documentElement).appendChild(varsStyle);
         }
-        varsStyle.textContent = `:root { --myapm-active-theme: "${normalized}"; }`;
+        varsStyle.textContent = `:root {
+            --myapm-active-theme: "${normalized}";
+            --myapm-ui-mode: "${uiMode}";
+            --myapm-btn-bg: ${palette.btnBg};
+            --myapm-btn-bg-hover: ${palette.btnBgHover};
+            --myapm-btn-text: ${palette.btnText};
+            --myapm-btn-border: ${palette.btnBorder};
+            --myapm-btn-shadow: ${palette.btnShadow};
+            --myapm-panel-bg: ${palette.panelBg};
+            --myapm-panel-border: ${palette.panelBorder};
+            --myapm-card-bg: ${palette.cardBg};
+            --myapm-card-border: ${palette.cardBorder};
+            --myapm-surface: ${palette.surface};
+            --myapm-surface-alt: ${palette.surfaceAlt};
+            --myapm-surface-soft: ${palette.surfaceSoft};
+            --myapm-surface-strong: ${palette.surfaceStrong};
+            --myapm-text: ${palette.text};
+            --myapm-text-muted: ${palette.textMuted};
+            --myapm-text-subtle: ${palette.textSubtle};
+            --myapm-heading: ${palette.heading};
+            --myapm-link: ${palette.link};
+            --myapm-input-bg: ${palette.inputBg};
+            --myapm-input-text: ${palette.inputText};
+            --myapm-input-border: ${palette.inputBorder};
+            --myapm-input-focus: ${palette.inputFocus};
+            --myapm-input-focus-ring: ${palette.inputFocusRing};
+            --myapm-pill-bg: ${palette.pillBg};
+            --myapm-pill-border: ${palette.pillBorder};
+            --myapm-table-head-bg: ${palette.tableHeadBg};
+            --myapm-table-border: ${palette.tableBorder};
+            --myapm-row-border: ${palette.rowBorder};
+            --myapm-row-hover: ${palette.rowHover};
+            --myapm-overlay: ${palette.overlay};
+            --myapm-active-bg: ${palette.activeBg};
+            --myapm-active-border: ${palette.activeBorder};
+            --myapm-warn-bg: ${palette.warnBg};
+            --myapm-warn-border: ${palette.warnBorder};
+            --myapm-warn-head-bg: ${palette.warnHeadBg};
+            --myapm-warn-text: ${palette.warnText};
+            --myapm-warn-heading: ${palette.warnHeading};
+            --myapm-overdue-bg: ${palette.overdueBg};
+            --myapm-overdue-border: ${palette.overdueBorder};
+            --myapm-overdue-head-bg: ${palette.overdueHeadBg};
+            --myapm-overdue-text: ${palette.overdueText};
+            --myapm-overdue-heading: ${palette.overdueHeading};
+            --myapm-copy-bg: ${palette.copyBg};
+            --myapm-copy-bg-hover: ${palette.copyBgHover};
+            --myapm-copy-border: ${palette.copyBorder};
+            --myapm-copy-text: ${palette.copyText};
+            --myapm-copy-text-hover: ${palette.copyTextHover};
+            --myapm-accent: ${palette.accent};
+            --myapm-accent-strong: ${palette.accentStrong};
+            --myapm-accent-text: ${palette.accentText};
+            --myapm-toast-info-bg: ${palette.infoBg};
+            --myapm-toast-success-bg: ${palette.successBg};
+            --myapm-toast-error-bg: ${palette.errorBg};
+        }`;
 
         let flashStyle = document.getElementById(THEME_FLASH_STYLE_ID);
         if (dark) {
@@ -329,6 +495,7 @@
         }
 
         document.documentElement.dataset.myapmTheme = normalized;
+        document.documentElement.dataset.myapmUiMode = uiMode;
     }
 
     function getDesiredThemeValue() {
@@ -340,8 +507,7 @@
         if (options.persist !== false) setTopThemeParam(normalized);
         try { hookThemeTargets(window); } catch (_) {}
         try { enforceThemeLinks(normalized, document); } catch (_) {}
-        if (normalized === 'default') clearThemeArtifacts(document);
-        else applyThemeVisualHints(normalized);
+        applyThemeVisualHints(normalized);
     }
 
     function clearThemeArtifacts(doc = document) {
@@ -685,10 +851,10 @@
                 doc.body.appendChild(toast);
             }
             const palette = kind === 'error'
-                ? { background: '#b3261e', color: '#fff' }
+                ? { background: 'var(--myapm-toast-error-bg)', color: '#fff' }
                 : kind === 'success'
-                    ? { background: '#1f7a1f', color: '#fff' }
-                    : { background: '#223247', color: '#fff' };
+                    ? { background: 'var(--myapm-toast-success-bg)', color: '#fff' }
+                    : { background: 'var(--myapm-toast-info-bg)', color: '#fff' };
             toast.textContent = message;
             toast.style.background = palette.background;
             toast.style.color = palette.color;
@@ -914,12 +1080,12 @@
             gap: '6px',
             padding: '6px 10px',
             borderRadius: '999px',
-            background: '#f39c12',
+            background: 'var(--myapm-accent)',
             color: '#fff',
             fontSize: '12px',
             fontWeight: '700',
             textDecoration: 'none',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.22)'
+            boxShadow: 'var(--myapm-btn-shadow)'
         });
         link.addEventListener('click', () => {
             link.href = buildInstallScriptUrl();
@@ -1164,28 +1330,28 @@
                 alignItems: 'center',
                 justifyContent: 'center',
                 verticalAlign: 'middle',
-                background: 'rgba(228, 121, 17, 0.26)',
-                border: '1px solid rgba(255, 179, 71, 0.7)',
+                background: 'var(--myapm-copy-bg)',
+                border: '1px solid var(--myapm-copy-border)',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 width: '18px',
                 height: '18px',
                 padding: '1px',
-                color: '#ffb347',
+                color: 'var(--myapm-copy-text)',
                 opacity: '1',
                 boxShadow: '0 0 0 1px rgba(0,0,0,0.12)',
                 transition: 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s'
             });
             btn.addEventListener('mouseenter', () => {
-                btn.style.background = 'rgba(228, 121, 17, 0.45)';
-                btn.style.borderColor = 'rgba(255, 179, 71, 0.95)';
-                btn.style.color = '#ffd18a';
+                btn.style.background = 'var(--myapm-copy-bg-hover)';
+                btn.style.borderColor = 'var(--myapm-copy-border)';
+                btn.style.color = 'var(--myapm-copy-text-hover)';
                 btn.style.boxShadow = '0 0 0 1px rgba(255,179,71,0.35)';
             });
             btn.addEventListener('mouseleave', () => {
-                btn.style.background = 'rgba(228, 121, 17, 0.26)';
-                btn.style.borderColor = 'rgba(255, 179, 71, 0.7)';
-                btn.style.color = '#ffb347';
+                btn.style.background = 'var(--myapm-copy-bg)';
+                btn.style.borderColor = 'var(--myapm-copy-border)';
+                btn.style.color = 'var(--myapm-copy-text)';
                 btn.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.12)';
             });
             btn.addEventListener('click', async (event) => {
@@ -3528,33 +3694,33 @@
         host.dataset.modalTabLabel = 'My Shift Summary';
         root.innerHTML = `
             <style>
-                .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: rgba(5,10,18,0.58); display: flex; align-items: center; justify-content: center; padding: 18px; }
-                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 12px 0 0 12px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
-                .showTab:hover { background: rgba(20, 34, 56, 0.98); }
-                .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1420px, calc(100vw - 50px)); max-height: calc(100vh - 90px); display: flex; flex-direction: column; background: rgb(10, 18, 30); color: #eaf0ff; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; box-shadow: 0 10px 35px rgba(0,0,0,0.55); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow: hidden; }
-                .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); background: transparent; cursor: move; user-select: none; }
+                .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: var(--myapm-overlay); display: flex; align-items: center; justify-content: center; padding: 18px; }
+                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid var(--myapm-panel-border); border-right: none; border-radius: 12px 0 0 12px; background: var(--myapm-panel-bg); color: var(--myapm-heading); padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: var(--myapm-btn-shadow); }
+                .showTab:hover { background: var(--myapm-btn-bg-hover); }
+                .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1420px, calc(100vw - 50px)); max-height: calc(100vh - 90px); display: flex; flex-direction: column; background: var(--myapm-panel-bg); color: var(--myapm-text); border: 1px solid var(--myapm-panel-border); border-radius: 10px; box-shadow: 0 10px 35px rgba(0,0,0,0.28); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; overflow: hidden; }
+                .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--myapm-card-border); background: transparent; cursor: move; user-select: none; }
                 .titleWrap { display: flex; flex-direction: column; gap: 2px; }
-                .title { font-size: 15px; font-weight: 800; color: #eaf0ff; }
-                .subtitle { font-size: 12px; color: #b8c7df; }
-                .windowPill { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; width: fit-content; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: #eaf0ff; font-size: 11px; font-weight: 700; }
+                .title { font-size: 15px; font-weight: 800; color: var(--myapm-heading); }
+                .subtitle { font-size: 12px; color: var(--myapm-text-subtle); }
+                .windowPill { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; width: fit-content; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--myapm-pill-border); background: var(--myapm-pill-bg); color: var(--myapm-text); font-size: 11px; font-weight: 700; }
                 .actions { display: flex; align-items: center; gap: 8px; }
-                .actionBtn { cursor: pointer; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.10); color: #fff; border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
-                .actionBtn:hover { background: rgba(255,255,255,0.16); box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+                .actionBtn { cursor: pointer; border: 1px solid var(--myapm-btn-border); background: var(--myapm-btn-bg); color: var(--myapm-btn-text); border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 700; box-shadow: var(--myapm-btn-shadow); }
+                .actionBtn:hover { background: var(--myapm-btn-bg-hover); box-shadow: var(--myapm-btn-shadow); }
                 .actionBtn.secondary { padding: 4px 8px; font-size: 11px; }
-                .assignedUserInput { width: 240px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; box-sizing: border-box; }
-                .assignedUserInput::placeholder { color: #b8c7df; }
+                .assignedUserInput { width: 240px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--myapm-input-border); background: var(--myapm-input-bg); color: var(--myapm-input-text); font-size: 12px; box-sizing: border-box; }
+                .assignedUserInput::placeholder { color: var(--myapm-text-subtle); }
                 .body { padding: 10px 14px 14px; overflow: auto; max-height: calc(100vh - 170px); }
-                .empty { color: #d6deee; font-size: 13px; padding: 14px 0; }
-                .warnBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,77,77,0.55); background: rgba(255,77,77,0.12); }
-                .warnHeader { font-weight: 900; color: #ff7373; margin-bottom: 8px; }
-                .warnTableWrap { margin-top: 8px; border: 1px solid rgba(255,77,77,0.35); border-radius: 8px; overflow: auto; }
-                .warnTable thead th { background: rgba(75,18,18,0.72); color: #ffd6d6; }
-                .warnTable tbody td { color: #ffe3e3; }
-                .overdueBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,179,71,0.65); background: rgba(255,179,71,0.13); }
-                .overdueHeader { font-weight: 900; color: #ffb347; margin-bottom: 8px; }
-                .overdueTableWrap { margin-top: 8px; border: 1px solid rgba(255,179,71,0.4); border-radius: 8px; overflow: auto; }
-                .overdueTable thead th { background: rgba(93,56,8,0.72); color: #ffe1ad; }
-                .overdueTable tbody td { color: #ffe7c2; }
+                .empty { color: var(--myapm-text-muted); font-size: 13px; padding: 14px 0; }
+                .warnBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--myapm-warn-border); background: var(--myapm-warn-bg); }
+                .warnHeader { font-weight: 900; color: var(--myapm-warn-heading); margin-bottom: 8px; }
+                .warnTableWrap { margin-top: 8px; border: 1px solid var(--myapm-warn-border); border-radius: 8px; overflow: auto; }
+                .warnTable thead th { background: var(--myapm-warn-head-bg); color: var(--myapm-warn-text); }
+                .warnTable tbody td { color: var(--myapm-warn-text); }
+                .overdueBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--myapm-overdue-border); background: var(--myapm-overdue-bg); }
+                .overdueHeader { font-weight: 900; color: var(--myapm-overdue-heading); margin-bottom: 8px; }
+                .overdueTableWrap { margin-top: 8px; border: 1px solid var(--myapm-overdue-border); border-radius: 8px; overflow: auto; }
+                .overdueTable thead th { background: var(--myapm-overdue-head-bg); color: var(--myapm-overdue-text); }
+                .overdueTable tbody td { color: var(--myapm-overdue-text); }
                 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
                 .shift-col-date { width: 120px; }
                 .shift-col-wo { width: 180px; }
@@ -3563,17 +3729,17 @@
                 .shift-col-start { width: 120px; }
                 .shift-col-end { width: 120px; }
                 .shift-col-assigned { width: 150px; }
-                thead th { position: sticky; top: 0; background: #0a1524; color: #eaf0ff; text-align: left; padding: 9px 8px; border-bottom: 1px solid #304258; white-space: nowrap; }
-                tbody td { padding: 8px; border-bottom: 1px solid rgba(61,82,109,0.6); color: #d6deee; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
-                tbody tr:hover td { background: rgba(53,80,115,0.18); }
+                thead th { position: sticky; top: 0; background: var(--myapm-table-head-bg); color: var(--myapm-heading); text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--myapm-table-border); white-space: nowrap; }
+                tbody td { padding: 8px; border-bottom: 1px solid var(--myapm-row-border); color: var(--myapm-text-muted); vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+                tbody tr:hover td { background: var(--myapm-row-hover); }
                 .col-wo { white-space: nowrap; overflow: visible; text-overflow: clip; }
                 .warnTable th:empty, .warnTable td:empty, .overdueTable th:empty, .overdueTable td:empty { color: transparent; }
                 .myapm-wo-inline-wrap { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-                .myapm-wo-link { color: #7fb7ff; text-decoration: underline; font-weight: 700; }
-                .myapm-copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 1px; border-radius: 4px; border: 1px solid rgba(255,179,71,0.75); background: rgba(228,121,17,0.18); color: #ffb347; cursor: pointer; }
-                .myapm-copy-btn:hover { background: rgba(228,121,17,0.34); color: #ffd18a; }
-                .actionBtn[data-active="true"] { background: rgba(20,110,180,0.35); border-color: rgba(20,110,180,0.65); color: #fff; }
-                .assignedEmpty { margin-top: 10px; color: #d6deee; font-size: 12px; }
+                .myapm-wo-link { color: var(--myapm-link); text-decoration: underline; font-weight: 700; }
+                .myapm-copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 1px; border-radius: 4px; border: 1px solid var(--myapm-copy-border); background: var(--myapm-copy-bg); color: var(--myapm-copy-text); cursor: pointer; }
+                .myapm-copy-btn:hover { background: var(--myapm-copy-bg-hover); color: var(--myapm-copy-text-hover); }
+                .actionBtn[data-active="true"] { background: var(--myapm-active-bg); border-color: var(--myapm-active-border); color: var(--myapm-accent-text); }
+                .assignedEmpty { margin-top: 10px; color: var(--myapm-text-muted); font-size: 12px; }
             </style>
             <button type="button" class="showTab" data-action="show" hidden>${escapeHtml(flow.modalTitle || 'Show Results')}</button>
             <div class="overlay">
@@ -3824,9 +3990,21 @@
                     copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M192 0c-41.8 0-77.4 26.7-90.5 64L64 64C28.7 64 0 92.7 0 128V448c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V128c0-35.3-28.7-64-64-64h-37.5C269.4 26.7 233.8 0 192 0zm0 64a32 32 0 1 1 0 64 32 32 0 1 1 0-64zM305 273L177 401c-9.4 9.4-24.6 9.4-33.9 0L79 337c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47 111-111c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"></path></svg>';
                     Object.assign(copyBtn.style, {
                         marginLeft: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'rgba(228, 121, 17, 0.26)', border: '1px solid rgba(255, 179, 71, 0.7)',
+                        background: 'var(--myapm-copy-bg)', border: '1px solid var(--myapm-copy-border)',
                         borderRadius: '4px', cursor: 'pointer', width: '18px', height: '18px', padding: '1px',
-                        color: '#ffb347', opacity: '1', boxShadow: '0 0 0 1px rgba(0,0,0,0.12)', transition: 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s', flexShrink: '0'
+                        color: 'var(--myapm-copy-text)', opacity: '1', boxShadow: '0 0 0 1px rgba(0,0,0,0.12)', transition: 'background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s', flexShrink: '0'
+                    });
+                    copyBtn.addEventListener('mouseenter', () => {
+                        copyBtn.style.background = 'var(--myapm-copy-bg-hover)';
+                        copyBtn.style.borderColor = 'var(--myapm-copy-border)';
+                        copyBtn.style.color = 'var(--myapm-copy-text-hover)';
+                        copyBtn.style.boxShadow = '0 0 0 1px rgba(255,179,71,0.35)';
+                    });
+                    copyBtn.addEventListener('mouseleave', () => {
+                        copyBtn.style.background = 'var(--myapm-copy-bg)';
+                        copyBtn.style.borderColor = 'var(--myapm-copy-border)';
+                        copyBtn.style.color = 'var(--myapm-copy-text)';
+                        copyBtn.style.boxShadow = '0 0 0 1px rgba(0,0,0,0.12)';
                     });
                     copyBtn.addEventListener('click', async (event) => {
                         event.preventDefault();
@@ -4006,36 +4184,37 @@
         host.dataset.modalTabLabel = 'My Shift Summary';
         root.innerHTML = `
             <style>
-                .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: rgba(5,10,18,0.58); display: flex; align-items: center; justify-content: center; padding: 18px; }
-                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid rgba(255,255,255,0.22); border-right: none; border-radius: 12px 0 0 12px; background: rgba(10, 18, 30, 0.96); color: #eaf0ff; padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
-                .showTab:hover { background: rgba(20, 34, 56, 0.98); }
-                .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1320px, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: linear-gradient(to bottom, #1a2534, #111926); color: #d6deee; border: 1px solid #304258; border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,0.45); font: 13px/1.4 Arial, Helvetica, sans-serif; overflow: hidden; }
-                .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); background: transparent; cursor: move; user-select: none; }
+                .overlay { position: fixed; inset: 0; z-index: ${MODAL_Z_INDEX}; background: var(--myapm-overlay); display: flex; align-items: center; justify-content: center; padding: 18px; }
+                .showTab { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: ${MODAL_Z_INDEX}; border: 1px solid var(--myapm-panel-border); border-right: none; border-radius: 12px 0 0 12px; background: var(--myapm-panel-bg); color: var(--myapm-heading); padding: 16px 14px; font: 700 14px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em; cursor: pointer; box-shadow: var(--myapm-btn-shadow); }
+                .showTab:hover { background: var(--myapm-btn-bg-hover); }
+                .modal { position: fixed; left: 50%; top: 56%; transform: translate(-50%, -50%); width: min(1320px, 96vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--myapm-panel-bg); color: var(--myapm-text); border: 1px solid var(--myapm-panel-border); border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,0.28); font: 13px/1.4 Arial, Helvetica, sans-serif; overflow: hidden; }
+                .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--myapm-card-border); background: transparent; cursor: move; user-select: none; }
                 .titleWrap { display: flex; flex-direction: column; gap: 2px; }
-                .title { font-size: 15px; font-weight: 800; color: #eaf0ff; }
-                .subtitle { font-size: 12px; color: #b8c7df; }
+                .title { font-size: 15px; font-weight: 800; color: var(--myapm-heading); }
+                .subtitle { font-size: 12px; color: var(--myapm-text-subtle); }
                 .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-                .actionBtn { cursor: pointer; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.10); color: #fff; border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
-                .actionBtn:hover { background: rgba(255,255,255,0.16); box-shadow: 0 2px 8px rgba(0,0,0,0.35); }
+                .actionBtn { cursor: pointer; border: 1px solid var(--myapm-btn-border); background: var(--myapm-btn-bg); color: var(--myapm-btn-text); border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 700; box-shadow: var(--myapm-btn-shadow); }
+                .actionBtn:hover { background: var(--myapm-btn-bg-hover); box-shadow: var(--myapm-btn-shadow); }
                 .actionBtn.secondary { padding: 4px 8px; font-size: 11px; }
-                .actionBtn[data-active="true"] { background: rgba(20,110,180,0.35); border-color: rgba(20,110,180,0.65); color: #fff; }
-                .assignedUserInput { width: 240px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; box-sizing: border-box; }
+                .actionBtn[data-active="true"] { background: var(--myapm-active-bg); border-color: var(--myapm-active-border); color: var(--myapm-accent-text); }
+                .assignedUserInput { width: 240px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--myapm-input-border); background: var(--myapm-input-bg); color: var(--myapm-input-text); font-size: 12px; box-sizing: border-box; }
+                .assignedUserInput::placeholder { color: var(--myapm-text-subtle); }
                 .body { padding: 10px 14px 14px; overflow: auto; max-height: calc(100vh - 170px); }
-                .combinedSection { margin-bottom: 16px; border: 1px solid rgba(61,82,109,0.65); border-radius: 8px; overflow: hidden; }
-                .combinedSectionHeader { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; background: rgba(39,54,75,0.65); border-bottom: 1px solid rgba(61,82,109,0.65); }
-                .combinedSectionTitle { font-size: 14px; font-weight: 700; color: #eaf0ff; }
-                .combinedSectionMeta { font-size: 11px; color: #b8c7df; }
-                .empty { padding: 12px; color: #d6deee; }
-                .warnBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,77,77,0.55); background: rgba(255,77,77,0.12); }
-                .warnHeader { font-weight: 900; color: #ff7373; margin-bottom: 8px; }
-                .warnTableWrap { margin-top: 8px; border: 1px solid rgba(255,77,77,0.35); border-radius: 8px; overflow: auto; }
-                .warnTable thead th { background: rgba(75,18,18,0.72); color: #ffd6d6; }
-                .warnTable tbody td { color: #ffe3e3; }
-                .overdueBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,179,71,0.65); background: rgba(255,179,71,0.13); }
-                .overdueHeader { font-weight: 900; color: #ffb347; margin-bottom: 8px; }
-                .overdueTableWrap { margin-top: 8px; border: 1px solid rgba(255,179,71,0.4); border-radius: 8px; overflow: auto; }
-                .overdueTable thead th { background: rgba(93,56,8,0.72); color: #ffe1ad; }
-                .overdueTable tbody td { color: #ffe7c2; }
+                .combinedSection { margin-bottom: 16px; border: 1px solid var(--myapm-card-border); border-radius: 8px; overflow: hidden; background: var(--myapm-card-bg); }
+                .combinedSectionHeader { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--myapm-surface-alt); border-bottom: 1px solid var(--myapm-card-border); }
+                .combinedSectionTitle { font-size: 14px; font-weight: 700; color: var(--myapm-heading); }
+                .combinedSectionMeta { font-size: 11px; color: var(--myapm-text-subtle); }
+                .empty { padding: 12px; color: var(--myapm-text-muted); }
+                .warnBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--myapm-warn-border); background: var(--myapm-warn-bg); }
+                .warnHeader { font-weight: 900; color: var(--myapm-warn-heading); margin-bottom: 8px; }
+                .warnTableWrap { margin-top: 8px; border: 1px solid var(--myapm-warn-border); border-radius: 8px; overflow: auto; }
+                .warnTable thead th { background: var(--myapm-warn-head-bg); color: var(--myapm-warn-text); }
+                .warnTable tbody td { color: var(--myapm-warn-text); }
+                .overdueBox { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--myapm-overdue-border); background: var(--myapm-overdue-bg); }
+                .overdueHeader { font-weight: 900; color: var(--myapm-overdue-heading); margin-bottom: 8px; }
+                .overdueTableWrap { margin-top: 8px; border: 1px solid var(--myapm-overdue-border); border-radius: 8px; overflow: auto; }
+                .overdueTable thead th { background: var(--myapm-overdue-head-bg); color: var(--myapm-overdue-text); }
+                .overdueTable tbody td { color: var(--myapm-overdue-text); }
                 table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
                 .shift-col-date { width: 120px; }
                 .shift-col-wo { width: 180px; }
@@ -4044,15 +4223,15 @@
                 .shift-col-start { width: 120px; }
                 .shift-col-end { width: 120px; }
                 .shift-col-assigned { width: 150px; }
-                thead th { position: sticky; top: 0; background: #0a1524; color: #eaf0ff; text-align: left; padding: 9px 8px; border-bottom: 1px solid #304258; white-space: nowrap; }
-                tbody td { padding: 8px; border-bottom: 1px solid rgba(61,82,109,0.6); color: #d6deee; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
-                tbody tr:hover td { background: rgba(53,80,115,0.18); }
+                thead th { position: sticky; top: 0; background: var(--myapm-table-head-bg); color: var(--myapm-heading); text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--myapm-table-border); white-space: nowrap; }
+                tbody td { padding: 8px; border-bottom: 1px solid var(--myapm-row-border); color: var(--myapm-text-muted); vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+                tbody tr:hover td { background: var(--myapm-row-hover); }
                 .col-wo { white-space: nowrap; overflow: visible; text-overflow: clip; }
                 .warnTable th:empty, .warnTable td:empty, .overdueTable th:empty, .overdueTable td:empty { color: transparent; }
                 .myapm-wo-inline-wrap { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-                .myapm-wo-link { color: #7fb7ff; text-decoration: underline; font-weight: 700; }
-                .myapm-copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 1px; border-radius: 4px; border: 1px solid rgba(255,179,71,0.75); background: rgba(228,121,17,0.18); color: #ffb347; cursor: pointer; }
-                .assignedEmpty { margin-top: 10px; color: #d6deee; font-size: 12px; }
+                .myapm-wo-link { color: var(--myapm-link); text-decoration: underline; font-weight: 700; }
+                .myapm-copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 1px; border-radius: 4px; border: 1px solid var(--myapm-copy-border); background: var(--myapm-copy-bg); color: var(--myapm-copy-text); cursor: pointer; }
+                .assignedEmpty { margin-top: 10px; color: var(--myapm-text-muted); font-size: 12px; }
             </style>
             <button type="button" class="showTab" data-action="show" hidden>My Shift Summary</button>
             <div class="overlay">
@@ -4260,20 +4439,20 @@
             minHeight: '26px',
             padding: '2px 10px',
             font: '700 11px/22px Arial, Helvetica, sans-serif',
-            background: 'linear-gradient(to bottom, #27364b, #1a2534)',
-            color: '#eaf0ff',
-            border: '1px solid #3d526d',
+            background: 'var(--myapm-btn-bg)',
+            color: 'var(--myapm-btn-text)',
+            border: '1px solid var(--myapm-btn-border)',
             borderRadius: '5px',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--myapm-btn-shadow)',
             cursor: 'pointer',
             userSelect: 'none'
         });
         button.addEventListener('mouseenter', () => {
-            button.style.background = 'linear-gradient(to bottom, #355073, #253a55)';
+            button.style.background = 'var(--myapm-btn-bg-hover)';
         });
         button.addEventListener('mouseleave', () => {
             if (button.dataset.active === 'true') return;
-            button.style.background = 'linear-gradient(to bottom, #27364b, #1a2534)';
+            button.style.background = 'var(--myapm-btn-bg)';
         });
         button.addEventListener('click', onClick);
         return button;
@@ -4387,20 +4566,20 @@
             width: '140px',
             minHeight: '26px',
             padding: '2px 8px',
-            border: '1px solid #71839a',
+            border: '1px solid var(--myapm-input-border)',
             borderRadius: '5px',
-            background: '#f7f9fc',
-            color: '#18212b',
+            background: 'var(--myapm-input-bg)',
+            color: 'var(--myapm-input-text)',
             font: '700 11px/22px Consolas, Menlo, Monaco, monospace',
             boxSizing: 'border-box',
             outline: 'none'
         });
         input.addEventListener('focus', () => {
-            input.style.borderColor = '#ffb347';
-            input.style.boxShadow = '0 0 0 2px rgba(255, 179, 71, 0.2)';
+            input.style.borderColor = 'var(--myapm-input-focus)';
+            input.style.boxShadow = '0 0 0 2px var(--myapm-input-focus-ring)';
         });
         input.addEventListener('blur', () => {
-            input.style.borderColor = '#71839a';
+            input.style.borderColor = 'var(--myapm-input-border)';
             input.style.boxShadow = 'none';
         });
         input.addEventListener('keydown', (event) => {
@@ -4421,18 +4600,18 @@
             minWidth: '28px',
             minHeight: '26px',
             padding: '0 8px',
-            background: 'linear-gradient(to bottom, #27364b, #1a2534)',
-            color: '#eaf0ff',
-            border: '1px solid #3d526d',
+            background: 'var(--myapm-btn-bg)',
+            color: 'var(--myapm-btn-text)',
+            border: '1px solid var(--myapm-btn-border)',
             borderRadius: '5px',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+            boxShadow: 'var(--myapm-btn-shadow)',
             cursor: 'pointer'
         });
         button.addEventListener('mouseenter', () => {
-            button.style.background = 'linear-gradient(to bottom, #355073, #253a55)';
+            button.style.background = 'var(--myapm-btn-bg-hover)';
         });
         button.addEventListener('mouseleave', () => {
-            button.style.background = 'linear-gradient(to bottom, #27364b, #1a2534)';
+            button.style.background = 'var(--myapm-btn-bg)';
         });
         button.addEventListener('click', (event) => {
             event.preventDefault();
@@ -4465,8 +4644,8 @@
             flexDirection: 'column',
             gap: '12px',
             padding: '16px',
-            background: 'linear-gradient(180deg, rgba(28,43,64,0.96), rgba(17,27,40,0.96))',
-            border: '1px solid rgba(88,118,156,0.45)',
+            background: 'var(--myapm-card-bg)',
+            border: '1px solid var(--myapm-card-border)',
             borderRadius: '14px',
             boxShadow: '0 10px 24px rgba(0,0,0,0.22)'
         });
@@ -4484,7 +4663,7 @@
             margin: '0',
             fontSize: '15px',
             fontWeight: '700',
-            color: '#f3f7ff',
+            color: 'var(--myapm-heading)',
             letterSpacing: '0.2px'
         });
 
@@ -4510,7 +4689,7 @@
             color: '#223146',
             fontSize: '12px',
             padding: '7px 12px',
-            border: '1px solid #b5c3d6',
+            border: '1px solid var(--myapm-input-border)',
             borderRadius: '999px',
             cursor: 'pointer',
             userSelect: 'none',
@@ -4528,6 +4707,7 @@
         };
 
         const btnToday = makeModeBtn('Today', 'today');
+        const btn4 = makeModeBtn('4 Days', '4');
         const btn7 = makeModeBtn('7 Days', '7');
         const btnCustom = makeModeBtn('Custom', 'custom');
 
@@ -4538,8 +4718,8 @@
             flexWrap: 'wrap',
             gap: '8px',
             padding: '10px 12px',
-            background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)',
+            background: 'var(--myapm-surface-soft)',
+            border: '1px solid var(--myapm-card-border)',
             borderRadius: '10px'
         });
 
@@ -4547,7 +4727,7 @@
         customLabel.textContent = 'Show items due within';
         Object.assign(customLabel.style, {
             fontSize: '12px',
-            color: '#c6d4ea'
+            color: 'var(--myapm-text-muted)'
         });
 
         const customDays = document.createElement('input');
@@ -4559,19 +4739,19 @@
             minHeight: '30px',
             padding: '4px 10px',
             borderRadius: '8px',
-            border: '1px solid #6e86a6',
-            background: '#f7f9fc',
-            color: '#18212b',
+            border: '1px solid var(--myapm-input-border)',
+            background: 'var(--myapm-input-bg)',
+            color: 'var(--myapm-input-text)',
             font: '700 12px/20px Arial, Helvetica, sans-serif',
             boxSizing: 'border-box',
             outline: 'none'
         });
         customDays.addEventListener('focus', () => {
-            customDays.style.borderColor = '#6fb3ff';
-            customDays.style.boxShadow = '0 0 0 3px rgba(111,179,255,0.18)';
+            customDays.style.borderColor = 'var(--myapm-input-focus)';
+            customDays.style.boxShadow = '0 0 0 3px var(--myapm-input-focus-ring)';
         });
         customDays.addEventListener('blur', () => {
-            customDays.style.borderColor = '#6e86a6';
+            customDays.style.borderColor = 'var(--myapm-input-border)';
             customDays.style.boxShadow = 'none';
         });
 
@@ -4579,15 +4759,15 @@
         customHint.textContent = 'days (0-365)';
         Object.assign(customHint.style, {
             fontSize: '12px',
-            color: '#8fa7c7'
+            color: 'var(--myapm-text-subtle)'
         });
 
         const applyModeVisuals = (mode) => {
-            [btnToday, btn7, btnCustom].forEach((btn) => {
+            [btnToday, btn4, btn7, btnCustom].forEach((btn) => {
                 const active = btn.dataset.mode === mode;
-                btn.style.background = active ? 'linear-gradient(180deg, #2d8cff, #1b63d0)' : baseStyle.background;
-                btn.style.color = active ? '#ffffff' : baseStyle.color;
-                btn.style.border = active ? '1px solid #2d8cff' : baseStyle.border;
+                btn.style.background = active ? 'linear-gradient(180deg, var(--myapm-accent), var(--myapm-accent-strong))' : baseStyle.background;
+                btn.style.color = active ? 'var(--myapm-accent-text)' : baseStyle.color;
+                btn.style.border = active ? '1px solid var(--myapm-accent)' : baseStyle.border;
                 btn.style.boxShadow = active ? '0 8px 18px rgba(23, 104, 214, 0.28)' : baseStyle.boxShadow;
             });
             customRow.style.display = mode === 'custom' ? 'flex' : 'none';
@@ -4605,6 +4785,7 @@
         };
 
         btnToday.addEventListener('click', () => setMode('today'));
+        btn4.addEventListener('click', () => setMode('4'));
         btn7.addEventListener('click', () => setMode('7'));
         btnCustom.addEventListener('click', () => setMode('custom'));
         customDays.addEventListener('blur', commitCustom);
@@ -4616,7 +4797,7 @@
             }
         });
 
-        segmented.append(btnToday, btn7, btnCustom);
+        segmented.append(btnToday, btn4, btn7, btnCustom);
         customRow.append(customLabel, customDays, customHint);
         controlWrap.append(segmented, customRow);
         applyModeVisuals(state.mode);
@@ -5077,27 +5258,27 @@
             width: '380px',
             maxWidth: '92vw',
             maxHeight: '78vh',
-            background: '#35404a',
-            border: '1px solid #2c353c',
+            background: 'var(--myapm-panel-bg)',
+            border: '1px solid var(--myapm-panel-border)',
             borderRadius: '8px',
             boxShadow: '0 8px 25px rgba(0,0,0,0.6)',
             padding: '15px',
             font: '13px/1.4 Arial, Helvetica, sans-serif',
-            color: '#ffffff',
+            color: 'var(--myapm-text)',
             flexDirection: 'column',
             gap: '10px'
         });
 
         panel.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0;">
-                <h4 style="margin:0; font-size:14px; color:#ffffff; font-weight:700;">Record Layout Reorder</h4>
+                <h4 style="margin:0; font-size:14px; color:var(--myapm-heading); font-weight:700;">Record Layout Reorder</h4>
             </div>
-            <div data-role="tabs" style="display:flex; margin-bottom:0; background:#22292f; border-radius:4px; overflow:hidden;"></div>
-            <div data-role="hint" style="font-size:11px; color:#aaa; margin-bottom:0;">Drag and drop to reorder, then click save.</div>
-            <div data-role="list" style="background:#22292f; border:1px solid #45535e; border-radius:4px; padding:5px; min-height:60px; max-height:260px; overflow-y:auto; margin-bottom:0;"></div>
+            <div data-role="tabs" style="display:flex; margin-bottom:0; background:var(--myapm-surface-strong); border:1px solid var(--myapm-table-border); border-radius:4px; overflow:hidden;"></div>
+            <div data-role="hint" style="font-size:11px; color:var(--myapm-text-subtle); margin-bottom:0;">Drag and drop to reorder, then click save.</div>
+            <div data-role="list" style="background:var(--myapm-surface-strong); border:1px solid var(--myapm-table-border); border-radius:4px; padding:5px; min-height:60px; max-height:260px; overflow-y:auto; margin-bottom:0;"></div>
             <div style="display:flex; gap:8px; justify-content:flex-end;">
-                <button type="button" data-action="reset" style="border:1px solid #45535e; background:#34495e; color:#ffffff; border-radius:6px; padding:10px 12px; font-size:12px; font-weight:700; cursor:pointer;">Reset to Default</button>
-                <button type="button" data-action="save" style="border:none; background:#2ecc71; color:#ffffff; border-radius:6px; padding:12px 14px; font-size:14px; font-weight:700; cursor:pointer;">Save Layout Order</button>
+                <button type="button" data-action="reset" style="border:1px solid var(--myapm-btn-border); background:var(--myapm-btn-bg); color:var(--myapm-btn-text); border-radius:6px; padding:10px 12px; font-size:12px; font-weight:700; cursor:pointer;">Reset to Default</button>
+                <button type="button" data-action="save" style="border:none; background:var(--myapm-accent); color:#ffffff; border-radius:6px; padding:12px 14px; font-size:14px; font-weight:700; cursor:pointer;">Save Layout Order</button>
             </div>`;
         document.body.appendChild(panel);
 
@@ -5127,8 +5308,8 @@
                     fontSize: '12px',
                     fontWeight: '700',
                     border: 'none',
-                    background: activeContextKey === context.key ? '#3498db' : 'transparent',
-                    color: activeContextKey === context.key ? '#fff' : '#7f8c8d'
+                    background: activeContextKey === context.key ? 'var(--myapm-accent)' : 'transparent',
+                    color: activeContextKey === context.key ? '#fff' : 'var(--myapm-text-subtle)'
                 });
                 btn.addEventListener('click', (event) => {
                     event.preventDefault();
@@ -5151,7 +5332,7 @@
             if (!ordered.length) {
                 const emptyEl = document.createElement('div');
                 emptyEl.textContent = context.emptyText;
-                emptyEl.style.color = '#7f8c8d';
+                emptyEl.style.color = 'var(--myapm-text-subtle)';
                 emptyEl.style.textAlign = 'center';
                 emptyEl.style.padding = '10px';
                 listEl.appendChild(emptyEl);
@@ -5170,27 +5351,27 @@
                     gap: '8px',
                     padding: '8px',
                     marginBottom: '4px',
-                    background: '#34495e',
-                    color: '#fff',
+                    background: 'var(--myapm-surface-alt)',
+                    color: 'var(--myapm-text)',
                     borderRadius: '4px',
                     cursor: 'grab',
                     fontSize: '12px',
-                    border: '1px solid #2c3e50',
+                    border: '1px solid var(--myapm-table-border)',
                     userSelect: 'none'
                 });
-                row.innerHTML = `<span><b style="color:#3498db;">::</b> ${escapeHtml(item.text)}</span><span style="color:#7f8c8d; font-size:10px;">[${escapeHtml(String(item.index))}]</span>`;
+                row.innerHTML = `<span><b style="color:var(--myapm-accent);">::</b> ${escapeHtml(item.text)}</span><span style="color:var(--myapm-text-subtle); font-size:10px;">[${escapeHtml(String(item.index))}]</span>`;
                 row.addEventListener('dragstart', (event) => {
                     event.dataTransfer.setData('text/plain', item.index);
                     row.classList.add('dragging');
                     row.style.opacity = '0.5';
-                    row.style.background = '#f39c12';
-                    row.style.borderColor = '#e67e22';
+                    row.style.background = 'var(--myapm-accent)';
+                    row.style.borderColor = 'var(--myapm-accent)';
                 });
                 row.addEventListener('dragend', () => {
                     row.classList.remove('dragging');
                     row.style.opacity = '1';
-                    row.style.background = '#34495e';
-                    row.style.borderColor = '#2c3e50';
+                    row.style.background = 'var(--myapm-surface-alt)';
+                    row.style.borderColor = 'var(--myapm-table-border)';
                 });
                 listEl.appendChild(row);
             });
@@ -5287,8 +5468,8 @@
             gap: '12px',
             padding: '10px 12px',
             borderRadius: '12px',
-            background: 'rgba(7, 15, 26, 0.35)',
-            border: '1px solid rgba(88,118,156,0.35)',
+            background: 'var(--myapm-surface-soft)',
+            border: '1px solid var(--myapm-card-border)',
             cursor: 'pointer',
             minWidth: '0'
         });
@@ -5298,7 +5479,7 @@
         Object.assign(text.style, {
             fontSize: '13px',
             fontWeight: '700',
-            color: '#dce7f7'
+            color: 'var(--myapm-text-muted)'
         });
 
         const input = document.createElement('input');
@@ -5325,8 +5506,8 @@
             flexDirection: 'column',
             gap: '12px',
             padding: '16px',
-            background: 'linear-gradient(180deg, rgba(28,43,64,0.96), rgba(17,27,40,0.96))',
-            border: '1px solid rgba(88,118,156,0.45)',
+            background: 'var(--myapm-card-bg)',
+            border: '1px solid var(--myapm-card-border)',
             borderRadius: '14px',
             boxShadow: '0 10px 24px rgba(0,0,0,0.22)'
         });
@@ -5344,31 +5525,15 @@
             margin: '0',
             fontSize: '15px',
             fontWeight: '700',
-            color: '#f3f7ff',
+            color: 'var(--myapm-heading)',
             letterSpacing: '0.2px'
-        });
-
-        const subtitle = document.createElement('div');
-        subtitle.textContent = 'Choose the theme MyAPM should force across EAM links and embedded pages.';
-        Object.assign(subtitle.style, {
-            fontSize: '12px',
-            color: '#9fb0c4',
-            lineHeight: '1.45'
         });
 
         const fieldWrap = document.createElement('div');
         Object.assign(fieldWrap.style, {
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px'
-        });
-
-        const selectLabel = document.createElement('label');
-        selectLabel.textContent = 'Theme mode';
-        Object.assign(selectLabel.style, {
-            fontSize: '12px',
-            fontWeight: '700',
-            color: '#dbe7f7'
+            gap: '0'
         });
 
         const dropdownWrap = document.createElement('div');
@@ -5389,11 +5554,11 @@
             gap: '12px',
             padding: '10px 14px',
             borderRadius: '14px',
-            border: '1px solid rgba(104,134,173,0.75)',
-            background: 'linear-gradient(180deg, rgba(44,58,79,0.94), rgba(35,47,66,0.94))',
-            color: '#f4f8ff',
+            border: '1px solid var(--myapm-input-border)',
+            background: 'var(--myapm-surface)',
+            color: 'var(--myapm-text)',
             font: '700 12px/18px Arial, Helvetica, sans-serif',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            boxShadow: 'var(--myapm-btn-shadow)',
             outline: 'none',
             cursor: 'pointer',
             transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease'
@@ -5416,7 +5581,7 @@
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#d9e6f7',
+            color: 'var(--myapm-text-muted)',
             flex: '0 0 auto',
             transition: 'transform 0.15s ease'
         });
@@ -5434,31 +5599,40 @@
             gap: '4px',
             padding: '8px',
             borderRadius: '14px',
-            border: '1px solid rgba(88,118,156,0.55)',
-            background: 'linear-gradient(180deg, rgba(26,37,52,0.98), rgba(17,27,40,0.98))',
+            border: '1px solid var(--myapm-card-border)',
+            background: 'var(--myapm-card-bg)',
             boxShadow: '0 18px 36px rgba(0,0,0,0.38)',
             zIndex: '20',
             backdropFilter: 'blur(12px)'
         });
 
-        const status = document.createElement('div');
-        Object.assign(status.style, {
-            fontSize: '12px',
-            color: '#8fa7c7'
-        });
-
         let selectedValue = 'default';
         let isOpen = false;
+
+        const scrollMenuIntoView = () => {
+            const panel = document.getElementById(SETTINGS_PANEL_ID);
+            if (!panel || !isOpen) return;
+            const panelRect = panel.getBoundingClientRect();
+            const menuRect = menu.getBoundingClientRect();
+            const bottomPadding = 16;
+            const topPadding = 12;
+            if (menuRect.bottom > panelRect.bottom - bottomPadding) {
+                panel.scrollTop += menuRect.bottom - panelRect.bottom + bottomPadding;
+            } else if (menuRect.top < panelRect.top + topPadding) {
+                panel.scrollTop -= panelRect.top + topPadding - menuRect.top;
+            }
+        };
 
         const setOpenState = (nextOpen) => {
             isOpen = !!nextOpen;
             menu.style.display = isOpen ? 'flex' : 'none';
             trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-            trigger.style.borderColor = isOpen ? '#6fb3ff' : 'rgba(104,134,173,0.75)';
+            trigger.style.borderColor = isOpen ? 'var(--myapm-input-focus)' : 'var(--myapm-input-border)';
             trigger.style.boxShadow = isOpen
-                ? '0 0 0 2px rgba(111,179,255,0.18), inset 0 1px 0 rgba(255,255,255,0.05)'
-                : 'inset 0 1px 0 rgba(255,255,255,0.04)';
+                ? '0 0 0 2px var(--myapm-input-focus-ring)'
+                : 'var(--myapm-btn-shadow)';
             triggerIcon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+            if (isOpen) requestAnimationFrame(scrollMenuIntoView);
         };
 
         const optionButtons = [];
@@ -5472,21 +5646,20 @@
                 }
             } catch (_) {}
             const option = THEME_OPTIONS.find((entry) => entry.value === selected);
-            status.textContent = `Active theme: ${option ? option.label : selected}`;
             selectedValue = option ? option.value : 'default';
-            triggerText.textContent = option ? option.label : 'System Default';
+            triggerText.textContent = option ? option.label : 'Default';
             optionButtons.forEach(({ value, button }) => {
                 const active = value === selectedValue;
                 button.setAttribute('aria-selected', active ? 'true' : 'false');
                 Object.assign(button.style, active ? {
-                    background: 'linear-gradient(180deg, rgba(52,110,191,0.92), rgba(35,87,162,0.92))',
-                    color: '#ffffff',
-                    borderColor: 'rgba(118,170,255,0.95)',
-                    boxShadow: '0 8px 18px rgba(17,79,168,0.34)'
+                    background: 'linear-gradient(180deg, var(--myapm-accent), var(--myapm-accent-strong))',
+                    color: 'var(--myapm-accent-text)',
+                    borderColor: 'var(--myapm-accent)',
+                    boxShadow: '0 8px 18px rgba(17,79,168,0.24)'
                 } : {
-                    background: 'rgba(255,255,255,0.02)',
-                    color: '#dbe7f7',
-                    borderColor: 'transparent',
+                    background: 'var(--myapm-surface)',
+                    color: 'var(--myapm-text)',
+                    borderColor: 'var(--myapm-card-border)',
                     boxShadow: 'none'
                 });
             });
@@ -5503,9 +5676,9 @@
                 minHeight: '38px',
                 padding: '9px 12px',
                 borderRadius: '10px',
-                border: '1px solid transparent',
-                background: 'rgba(255,255,255,0.02)',
-                color: '#dbe7f7',
+                border: '1px solid var(--myapm-card-border)',
+                background: 'var(--myapm-surface)',
+                color: 'var(--myapm-text)',
                 font: '700 12px/18px Arial, Helvetica, sans-serif',
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -5513,13 +5686,13 @@
             });
             optionBtn.addEventListener('mouseenter', () => {
                 if (option.value === selectedValue) return;
-                optionBtn.style.background = 'rgba(255,255,255,0.07)';
-                optionBtn.style.borderColor = 'rgba(104,134,173,0.38)';
+                optionBtn.style.background = 'var(--myapm-surface-alt)';
+                optionBtn.style.borderColor = 'var(--myapm-input-border)';
             });
             optionBtn.addEventListener('mouseleave', () => {
                 if (option.value === selectedValue) return;
-                optionBtn.style.background = 'rgba(255,255,255,0.02)';
-                optionBtn.style.borderColor = 'transparent';
+                optionBtn.style.background = 'var(--myapm-surface)';
+                optionBtn.style.borderColor = 'var(--myapm-card-border)';
             });
             optionBtn.addEventListener('click', () => {
                 const nextTheme = applyPreferredThemeFromController(option.value);
@@ -5567,9 +5740,9 @@
 
         syncStatus();
         dropdownWrap.append(trigger, menu);
-        fieldWrap.append(selectLabel, dropdownWrap);
-        head.append(title, subtitle);
-        card.append(head, fieldWrap, status);
+        fieldWrap.append(dropdownWrap);
+        head.append(title);
+        card.append(head, fieldWrap);
         return card;
     }
 
@@ -5582,8 +5755,8 @@
             gap: '12px',
             minHeight: '100%',
             padding: '16px',
-            background: 'linear-gradient(180deg, rgba(28,43,64,0.96), rgba(17,27,40,0.96))',
-            border: '1px solid rgba(88,118,156,0.45)',
+            background: 'var(--myapm-card-bg)',
+            border: '1px solid var(--myapm-card-border)',
             borderRadius: '14px',
             boxShadow: '0 10px 24px rgba(0,0,0,0.22)'
         });
@@ -5594,7 +5767,7 @@
             margin: '0',
             fontSize: '15px',
             fontWeight: '700',
-            color: '#f3f7ff',
+            color: 'var(--myapm-heading)',
             letterSpacing: '0.2px'
         });
 
@@ -5607,27 +5780,27 @@
         const renderCompletedPtps = () => {
             const entries = getCompletedPtpEntriesForSettings().slice(0, 25);
             if (!entries.length) {
-                completedBody.innerHTML = '<div style="color:#9fb0c4; font-size:12px;">No completed PTPs within the last 12 hours.</div>';
+                completedBody.innerHTML = '<div style="color:var(--myapm-text-subtle); font-size:12px;">No completed PTPs within the last 12 hours.</div>';
                 return;
             }
             completedBody.innerHTML = `
-                <div style="height:100%; min-height:320px; overflow:auto; border:1px solid rgba(88,118,156,0.25); border-radius:8px;">
+                <div style="height:100%; min-height:320px; overflow:auto; border:1px solid var(--myapm-card-border); border-radius:8px; background:var(--myapm-surface);">
                     <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px;">
                         <thead>
                             <tr>
-                                <th style="position:sticky; top:0; background:#0f1723; color:#eaf0ff; text-align:left; padding:8px; border-bottom:1px solid #304258; width:180px;">Record</th>
-                                <th style="position:sticky; top:0; background:#0f1723; color:#eaf0ff; text-align:left; padding:8px; border-bottom:1px solid #304258;">Description</th>
+                                <th style="position:sticky; top:0; background:var(--myapm-table-head-bg); color:var(--myapm-heading); text-align:left; padding:8px; border-bottom:1px solid var(--myapm-table-border); width:180px;">Record</th>
+                                <th style="position:sticky; top:0; background:var(--myapm-table-head-bg); color:var(--myapm-heading); text-align:left; padding:8px; border-bottom:1px solid var(--myapm-table-border);">Description</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${entries.map((entry) => `
                                 <tr>
-                                    <td style="padding:8px; border-bottom:1px solid rgba(61,82,109,0.6); vertical-align:top; white-space:nowrap;">
+                                    <td style="padding:8px; border-bottom:1px solid var(--myapm-row-border); vertical-align:top; white-space:nowrap;">
                                         <span class="myapm-wo-inline-wrap" data-wo-num="${escapeHtml(entry.wo)}" data-wo-desc="${escapeHtml(entry.description)}">
-                                            <a href="${escapeHtml(buildWorkOrderUrl(entry.wo, 'WSJOBS'))}" target="_blank" rel="noopener noreferrer" class="myapm-wo-link" style="color:#7fb7ff; text-decoration:underline; font-weight:700;">${escapeHtml(entry.wo)}</a>
+                                            <a href="${escapeHtml(buildWorkOrderUrl(entry.wo, 'WSJOBS'))}" target="_blank" rel="noopener noreferrer" class="myapm-wo-link" style="color:var(--myapm-link); text-decoration:underline; font-weight:700;">${escapeHtml(entry.wo)}</a>
                                         </span>
                                     </td>
-                                    <td style="padding:8px; border-bottom:1px solid rgba(61,82,109,0.6); vertical-align:top; color:#d6deee;">${escapeHtml(entry.description || '—')}</td>
+                                    <td style="padding:8px; border-bottom:1px solid var(--myapm-row-border); vertical-align:top; color:var(--myapm-text-muted);">${escapeHtml(entry.description || '—')}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -5682,13 +5855,13 @@
             maxWidth: '92vw',
             maxHeight: '78vh',
             overflow: 'auto',
-            background: 'linear-gradient(180deg, #172334, #0f1724)',
-            border: '1px solid rgba(76, 102, 135, 0.9)',
+            background: 'var(--myapm-panel-bg)',
+            border: '1px solid var(--myapm-panel-border)',
             borderRadius: '18px',
             boxShadow: '0 24px 60px rgba(0,0,0,0.46)',
             padding: '20px',
             font: '13px/1.4 Arial, Helvetica, sans-serif',
-            color: '#d6deee',
+            color: 'var(--myapm-text-muted)',
             flexDirection: 'column',
             gap: '18px'
         });
@@ -5722,7 +5895,7 @@
             fontSize: '20px',
             lineHeight: '1.1',
             fontWeight: '800',
-            color: '#f4f8ff'
+            color: 'var(--myapm-heading)'
         });
 
         const introTitle = document.createElement('span');
@@ -5733,7 +5906,7 @@
         Object.assign(introVersion.style, {
             fontSize: '12px',
             fontWeight: '600',
-            color: '#9fb0c4'
+            color: 'var(--myapm-text-subtle)'
         });
 
         intro.append(introTitle, introVersion);
@@ -5752,7 +5925,7 @@
         helpLink.rel = 'noopener noreferrer';
         helpLink.textContent = 'Help';
         Object.assign(helpLink.style, {
-            color: '#4da3ff',
+            color: 'var(--myapm-link)',
             fontSize: '12px',
             fontWeight: '600',
             textDecoration: 'underline',
@@ -5765,7 +5938,7 @@
         feedbackLink.rel = 'noopener noreferrer';
         feedbackLink.textContent = 'Bug Report / Feature Request';
         Object.assign(feedbackLink.style, {
-            color: '#4da3ff',
+            color: 'var(--myapm-link)',
             fontSize: '12px',
             fontWeight: '600',
             textDecoration: 'underline',
@@ -5883,10 +6056,10 @@
                 slot.appendChild(window.createBookedLaborSettingsCard());
             }
         }, 0);
-        grid.appendChild(createThemeSettingsCard());
         Object.keys(DUE_WINDOW_CONFIG).forEach((flowKey) => {
             grid.appendChild(createDueWindowRow(flowKey));
         });
+        grid.appendChild(createThemeSettingsCard());
 
         panel.append(topRow, topContent, grid);
         document.body.appendChild(panel);
@@ -5952,7 +6125,7 @@
             transition: color 0.15s;
             user-select: none;
         `;
-        toggleBtn.innerHTML = 'Layout Reorder <span style="color:#e74c3c; margin-left:4px; font-weight:bold;">+</span>';
+        toggleBtn.innerHTML = 'Layout Reorder <span style="color:var(--myapm-accent); margin-left:4px; font-weight:bold;">+</span>';
         toggleBtn.addEventListener('mouseenter', () => { toggleBtn.style.color = '#fff'; });
         toggleBtn.addEventListener('mouseleave', () => { toggleBtn.style.color = '#d1d1d1'; });
         toggleBtn.addEventListener('click', (event) => {
@@ -6118,8 +6291,8 @@
       #${IDS.root} .my-labor-tabs {
         display: flex;
         gap: 2px;
-        background: #0f1723;
-        border: 1px solid #3c516d;
+        background: var(--myapm-surface-strong);
+        border: 1px solid var(--myapm-table-border);
         border-radius: 6px;
         overflow: hidden;
         margin-bottom: 12px;
@@ -6130,29 +6303,29 @@
         text-align: center;
         font-size: 11px;
         cursor: pointer;
-        color: #d6deee;
+        color: var(--myapm-text-muted);
         font-weight: 700;
         transition: 0.2s;
         user-select: none;
       }
       #${IDS.root} .my-labor-tab.active {
-        background: linear-gradient(to bottom, #146eb4, #0d4f8b);
-        color: #fff;
+        background: linear-gradient(to bottom, var(--myapm-accent), var(--myapm-accent-strong));
+        color: var(--myapm-accent-text);
       }
       #${IDS.root} .my-labor-total {
         font-size: 32px;
         font-weight: 700;
         text-align: center;
         margin: 10px 0;
-        color: #eaf0ff;
+        color: var(--myapm-heading);
       }
       #${IDS.root} .my-labor-row {
         display: flex;
         justify-content: space-between;
         padding: 6px 10px;
-        border-bottom: 1px solid #304258;
+        border-bottom: 1px solid var(--myapm-row-border);
         font-size: 12px;
-        color: #d6deee;
+        color: var(--myapm-text-muted);
       }
     `;
     document.head.appendChild(style);
@@ -6352,21 +6525,21 @@
     }
 
     if (errorMsg) {
-      let color = '#ff6b6b';
-      if (errorMsg === 'Loading...') color = '#ffb347';
-      if (errorMsg === 'Set login in MyAPM') color = '#ffd18a';
+      let color = 'var(--myapm-toast-error-bg)';
+      if (errorMsg === 'Loading...') color = 'var(--myapm-overdue-heading)';
+      if (errorMsg === 'Set login in MyAPM') color = 'var(--myapm-copy-text)';
       sumBox.innerHTML = `<span style="font-size:15px; color:${color};">${errorMsg}</span>`;
       list.innerHTML = '';
       return;
     }
 
     const { total, breakdown } = calculateLabor(activeTab);
-    sumBox.innerHTML = `${total.toFixed(2)} <span style="font-size:14px; color:#9fb0c4;">hrs</span>`;
+    sumBox.innerHTML = `${total.toFixed(2)} <span style="font-size:14px; color:var(--myapm-text-subtle);">hrs</span>`;
 
     list.innerHTML = '';
     const sortedDates = Object.keys(breakdown).sort((a, b) => new Date(b) - new Date(a));
     if (sortedDates.length === 0) {
-      list.innerHTML = '<div style="text-align:center; padding:10px; color:#9fb0c4; font-size:12px;">No labor records found.</div>';
+      list.innerHTML = '<div style="text-align:center; padding:10px; color:var(--myapm-text-subtle); font-size:12px;">No labor records found.</div>';
       return;
     }
 
@@ -6384,8 +6557,8 @@
     const card = document.createElement('section');
     card.id = IDS.root;
     Object.assign(card.style, {
-      background: 'linear-gradient(180deg, rgba(27, 39, 58, 0.94), rgba(16, 24, 38, 0.94))',
-      border: '1px solid rgba(69, 95, 130, 0.9)',
+      background: 'var(--myapm-card-bg)',
+      border: '1px solid var(--myapm-card-border)',
       borderRadius: '16px',
       padding: '16px',
       boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
@@ -6394,18 +6567,18 @@
 
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
-        <span style="font-size:13px; color:#eaf0ff; font-weight:700;">Booked Labor</span>
+        <span style="font-size:13px; color:var(--myapm-heading); font-weight:700;">Booked Labor</span>
       </div>
       <div class="my-labor-tabs">
         <div class="my-labor-tab active" data-d="1">Today</div>
         <div class="my-labor-tab" data-d="2">2-Day</div>
         <div class="my-labor-tab" data-d="7">7-Day</div>
       </div>
-      <input id="${IDS.searchInput}" type="text" placeholder="Search username and press Enter" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:7px 8px; border:1px solid #3c516d; border-radius:4px; background:#0f1723; color:#eaf0ff; font-size:12px;" />
-      <div id="${IDS.searchStatus}" style="font-size:11px; color:#9fb0c4; margin-bottom:8px;"></div>
-      <div id="${IDS.sum}" class="my-labor-total">0.00 <span style="font-size:14px; color:#9fb0c4;">hrs</span></div>
+      <input id="${IDS.searchInput}" type="text" placeholder="Search username and press Enter" style="width:100%; box-sizing:border-box; margin-bottom:6px; padding:7px 8px; border:1px solid var(--myapm-input-border); border-radius:4px; background:var(--myapm-input-bg); color:var(--myapm-input-text); font-size:12px;" />
+      <div id="${IDS.searchStatus}" style="font-size:11px; color:var(--myapm-text-subtle); margin-bottom:8px;"></div>
+      <div id="${IDS.sum}" class="my-labor-total">0.00 <span style="font-size:14px; color:var(--myapm-text-subtle);">hrs</span></div>
       <div id="${IDS.list}" style="max-height:220px; overflow-y:auto;"></div>
-      <button id="${IDS.refresh}" style="margin-top:14px; border:1px solid #3c516d; background:linear-gradient(to bottom, #2a3a50, #1b2738); color:#eaf0ff; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:700;">Refresh from Server</button>
+      <button id="${IDS.refresh}" style="margin-top:14px; border:1px solid var(--myapm-btn-border); background:var(--myapm-btn-bg); color:var(--myapm-btn-text); padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:700; box-shadow:var(--myapm-btn-shadow);">Refresh from Server</button>
     `;
 
     bindBookedLaborCard(card);
@@ -6427,6 +6600,8 @@
   const PTP_PARENT_TIMER_ID = 'ptp-timer';
   const PTP_PARENT_STYLE_ID = 'myapm-ptp-pulse-style';
   const PTP_COUNTDOWN_SECONDS = 120;
+  const PTP_HEARTBEAT_INTERVAL_MS = 8000;
+  const PTP_HEARTBEAT_STALE_MS = 15000;
   const PTP_SHARED_HISTORY_KEY = 'myapm_shared_ptp_history_v1';
   const PTP_LOCAL_HISTORY_KEY = 'apm_ptp_history';
   const PTP_PENDING_DESCRIPTION_KEY = 'myapm_ptp_pending_description_v1';
@@ -6605,15 +6780,63 @@
     });
   }
 
+  function getPtpButtonText(node) {
+    if (!node) return '';
+    return cleanText(
+      node.textContent
+      || (typeof node.getAttribute === 'function'
+        ? (node.getAttribute('aria-label') || node.getAttribute('title') || node.getAttribute('data-testid') || '')
+        : '')
+      || ''
+    ).toLowerCase();
+  }
+
+  function getPtpActionTexts(doc = document) {
+    try {
+      return Array.from(doc.querySelectorAll('button, mwc-button, a, [role="button"]'))
+        .map(getPtpButtonText)
+        .filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function isActivePtpAssessmentView(doc = document) {
+    if (!isPtpIframeHost()) return false;
+    const actionTexts = getPtpActionTexts(doc);
+    const hasCreateAssessment = actionTexts.some((text) => text === 'create assessment' || text === 'create new assessment');
+    if (hasCreateAssessment) return false;
+
+    const hasAssessmentAction = actionTexts.some((text) => (
+      text === 'complete'
+      || text === 'complete assessment'
+      || text === 'submit'
+      || text === 'submit assessment'
+      || text === 'cancel assessment'
+      || text === 'close assessment'
+      || text === 'discard'
+      || text === 'save draft'
+      || text === 'resume assessment'
+    ));
+    if (hasAssessmentAction) return true;
+
+    try {
+      const formSignals = doc.querySelectorAll('textarea, input[type="radio"], input[type="checkbox"], [role="radio"], [role="checkbox"], mwc-radio, mwc-checkbox').length;
+      return formSignals >= 3;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function createStandalonePtpTimer() {
-    if (!isPtpIframeHost()) return { start() {}, reset() {} };
+    if (!isPtpIframeHost()) return { start() {}, reset() {}, isActive: () => false };
     let isTopLevel = false;
     try {
       isTopLevel = window.top === window.self;
     } catch (_) {
       isTopLevel = true;
     }
-    if (!isTopLevel) return { start() {}, reset() {} };
+    if (!isTopLevel) return { start() {}, reset() {}, isActive: () => false };
 
     const BOX_ID = 'myapm-ptp-page-timer';
     const TEXT_ID = 'myapm-ptp-page-timer-text';
@@ -6621,6 +6844,7 @@
     let box = null;
     let secs = PTP_COUNTDOWN_SECONDS;
     let tick = null;
+    let active = false;
 
     function clearTick() {
       if (tick) clearInterval(tick);
@@ -6631,6 +6855,7 @@
       const node = box || document.getElementById(BOX_ID);
       box = null;
       if (node) node.remove();
+      active = false;
     }
 
     function ensureBox() {
@@ -6709,6 +6934,7 @@
       const txt = document.getElementById(TEXT_ID);
       const bar = document.getElementById(BAR_ID);
       if (!box || !txt || !bar) return;
+      active = true;
       txt.textContent = 'READY';
       bar.style.width = '100%';
       bar.style.background = '#2ecc71';
@@ -6718,9 +6944,10 @@
     }
 
     function start() {
-      if (!ptpEnabled()) return;
+      if (!ptpEnabled() || !isActivePtpAssessmentView()) return;
       clearTick();
       ensureBox();
+      active = true;
       secs = PTP_COUNTDOWN_SECONDS;
       draw();
       tick = setInterval(() => {
@@ -6740,7 +6967,7 @@
       removeBox();
     }
 
-    return { start, reset };
+    return { start, reset, isActive: () => active || !!document.getElementById(BOX_ID) };
   }
 
   function installParentPtpTimer() {
@@ -6777,11 +7004,14 @@
       document.head.appendChild(style);
     }
 
+    function ensureStatusWatch() {
+      if (statusWatch) return;
+      statusWatch = setInterval(() => checkPtpStatus(false), 3000);
+    }
+
     function clearTimers() {
       if (tick) clearInterval(tick);
-      if (statusWatch) clearInterval(statusWatch);
       tick = null;
-      statusWatch = null;
     }
 
     function removeBox() {
@@ -6912,6 +7142,7 @@
       });
       if (!ptpEnabled() || state.dismissed) return;
       clearTimers();
+      ensureStatusWatch();
       createBox();
       state.running = true;
       secs = PTP_COUNTDOWN_SECONDS;
@@ -6944,10 +7175,14 @@
       }
       if (hasHeartbeat) {
         state.lastHeartbeat = Date.now();
+        return;
+      }
+      if (state.lastHeartbeat && (Date.now() - state.lastHeartbeat) > PTP_HEARTBEAT_STALE_MS) {
+        resetTimer(false);
       }
     }
 
-    statusWatch = setInterval(() => checkPtpStatus(false), 3000);
+    ensureStatusWatch();
 
     window.addEventListener('message', (e) => {
       const data = e && e.data ? e.data : null;
@@ -6972,8 +7207,16 @@
 
       if (data.type === 'MYAPM_PTP_HEARTBEAT' && isAllowedPtpIframeOrigin(e.origin)) {
         logParent('message heartbeat accepted', { origin: e.origin, url: data.url || '', visible: data.visible });
+        if (data.visible === false) {
+          resetTimer(false);
+          return;
+        }
         state.lastHeartbeat = Date.now();
-        checkPtpStatus(true);
+        if (!state.running && ptpEnabled() && !state.dismissed) {
+          start();
+        } else {
+          checkPtpStatus(true);
+        }
         return;
       }
 
@@ -7080,6 +7323,11 @@
     }
 
     function triggerStart() {
+      if (!isActivePtpAssessmentView()) {
+        standaloneTimer.reset();
+        post('MYAPM_PTP_HEARTBEAT', { visible: false, url: location.href });
+        return;
+      }
       logBridge('triggerStart', { href: location.href, currentPtpWo, completionFired });
       standaloneTimer.start();
       post('MYAPM_PTP_START');
@@ -7148,17 +7396,6 @@
           textLength: String(text || '').length,
           bodyPreview: typeof requestBody === 'string' ? String(requestBody).slice(0, 300) : requestBody
         });
-        if (url.includes('submit_assessment') && status >= 200 && status < 300) {
-          logBridge('handleAssessmentResponse:submit_assessment success', {
-            url,
-            status,
-            currentPtpWo,
-            willTriggerCompletion: !!currentPtpWo
-          });
-          if (currentPtpWo) triggerCompletion(currentPtpWo);
-          else logBridge('handleAssessmentResponse:submit_assessment missing WO', { url, status });
-          return;
-        }
         if (url.includes('create_assessment') && status === 200) {
           completionFired = false;
           currentPtpWo = resolveWoNumber(url, requestBody, null) || currentPtpWo;
@@ -7331,12 +7568,15 @@
     }
 
     function heartbeat() {
-      const hasPtpHeader = !!document.querySelector('.ptp-header, .permit-details, #ptp-main-content, [class*="awsui_root_"]');
-      const hasWorkOrder = /workorder/i.test(location.href);
-      if (hasPtpHeader || hasWorkOrder) {
-        logBridge('heartbeat', { hasPtpHeader, hasWorkOrder, href: location.href, currentPtpWo, completionFired });
-        post('MYAPM_PTP_HEARTBEAT', { visible: true, url: location.href });
+      const assessmentVisible = isActivePtpAssessmentView();
+      logBridge('heartbeat', { assessmentVisible, href: location.href, currentPtpWo, completionFired });
+      if (!assessmentVisible) {
+        standaloneTimer.reset();
+        post('MYAPM_PTP_HEARTBEAT', { visible: false, url: location.href });
+        return;
       }
+      if (!standaloneTimer.isActive()) standaloneTimer.start();
+      post('MYAPM_PTP_HEARTBEAT', { visible: true, url: location.href });
     }
 
     document.addEventListener('click', (ev) => {
@@ -7348,11 +7588,10 @@
           text: btn && btn.textContent ? String(btn.textContent).trim() : ''
         });
         completionFired = false;
-        triggerStart();
       }
     }, true);
 
-    setInterval(heartbeat, 8000);
+    setInterval(heartbeat, PTP_HEARTBEAT_INTERVAL_MS);
     currentPtpWo = resolveWoNumber(location.href, null, null) || currentPtpWo;
     currentPtpDescription = resolvePtpDescription(location.href, null, null) || currentPtpDescription;
     syncPendingPtpDescription();
