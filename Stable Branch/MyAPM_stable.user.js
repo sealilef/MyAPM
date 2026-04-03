@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.6_stable
+// @version      0.4.8_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.6_stable';
+    const CURRENT_VERSION = '0.4.8_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -6605,6 +6605,9 @@
   const PTP_SHARED_HISTORY_KEY = 'myapm_shared_ptp_history_v1';
   const PTP_LOCAL_HISTORY_KEY = 'apm_ptp_history';
   const PTP_PENDING_DESCRIPTION_KEY = 'myapm_ptp_pending_description_v1';
+  const CLOSING_COMMENTS_SHARED_HISTORY_KEY = 'myapm_closing_comments_copy_history_v1';
+  const CLOSING_COMMENTS_LOCAL_HISTORY_KEY = 'apm_closing_comments_copy_history';
+  const CLOSING_COMMENTS_COOLDOWN_MS = 2000;
 
   function ptpEnabled() {
     return localStorage.getItem('apmPTPTimer') !== 'false';
@@ -6645,6 +6648,77 @@
     } catch (_) {
       return {};
     }
+  }
+
+  function getClosingCommentsCopyHistory() {
+    let history = parsePtpHistoryValue(readSharedValue(CLOSING_COMMENTS_SHARED_HISTORY_KEY, ''));
+    if (!history || !Object.keys(history).length) {
+      history = parsePtpHistoryValue(readSharedValue(CLOSING_COMMENTS_LOCAL_HISTORY_KEY, '{}'));
+    }
+    try { localStorage.setItem(CLOSING_COMMENTS_LOCAL_HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+    return history;
+  }
+
+  function updateClosingCommentsCopyHistory(woNumber) {
+    const wo = String(woNumber || '').trim();
+    if (!wo) return null;
+    const history = getClosingCommentsCopyHistory();
+    history[wo] = {
+      copiedAt: Date.now()
+    };
+    const serialized = JSON.stringify(history);
+    writeSharedValue(CLOSING_COMMENTS_SHARED_HISTORY_KEY, serialized);
+    try { localStorage.setItem(CLOSING_COMMENTS_LOCAL_HISTORY_KEY, serialized); } catch (_) {}
+    return history[wo];
+  }
+
+  function getCurrentWorkOrderNumber() {
+    const locationMatch = String(location.href || '').match(/[?&#]workordernum=(\d{6,})\b/i);
+    if (locationMatch && locationMatch[1]) return String(locationMatch[1]).trim();
+
+    const visibleFieldValue = getFirstVisibleFieldValue([
+      'textfield[name=workordernum]',
+      'textfield[name=ff_workordernum]',
+      'textfield[name*=workordernum]',
+      'textfield[name*=wonum]',
+      'displayfield[name=workordernum]',
+      'displayfield[name*=workordernum]',
+      'displayfield[name*=wonum]',
+      'field[name=workordernum]',
+      'field[name*=workordernum]',
+      'field[name*=wonum]'
+    ]);
+    const visibleFieldMatch = String(visibleFieldValue || '').match(/\b\d{6,}\b/);
+    if (visibleFieldMatch && visibleFieldMatch[0]) return String(visibleFieldMatch[0]).trim();
+
+    const labelValue = getFieldValueFromVisibleLabel([/^work\s*order:?$/i, /^wo:?$/i, /^work\s*order\s*#:?$/i]);
+    const labelMatch = String(labelValue || '').match(/\b\d{6,}\b/);
+    if (labelMatch && labelMatch[0]) return String(labelMatch[0]).trim();
+
+    const pageMatch = String(document.body && document.body.textContent || '').match(/\b\d{11}\b/);
+    return pageMatch ? String(pageMatch[0]).trim() : '';
+  }
+
+  function getClosingCommentsCopyState(textarea) {
+    const woNumber = getCurrentWorkOrderNumber();
+    const history = woNumber ? getClosingCommentsCopyHistory() : {};
+    const record = woNumber ? history[woNumber] : null;
+    return {
+      woNumber,
+      hasCopied: !!(woNumber && record),
+      copiedAt: record && typeof record === 'object' ? Number(record.copiedAt || 0) : 0
+    };
+  }
+
+  function setClosingCommentsCopyIndicator(indicatorEl, state) {
+    if (!indicatorEl) return;
+    const copied = !!(state && state.hasCopied);
+    indicatorEl.textContent = copied ? '✓' : '✗';
+    indicatorEl.title = copied
+      ? 'Closing comments already copied to the Comments tab for this work order.'
+      : 'Closing comments have not been copied to the Comments tab for this work order.';
+    indicatorEl.setAttribute('aria-label', indicatorEl.title);
+    indicatorEl.style.color = copied ? '#1f8f4d' : '#c0392b';
   }
 
   function readPendingPtpDescriptions() {
@@ -7907,16 +7981,24 @@
     }, 1800);
   }
 
-  async function copyClosingCommentsToCommentsTab(sourceTextarea, copyBtn) {
+  async function copyClosingCommentsToCommentsTab(sourceTextarea, copyBtn, indicatorEl) {
     const rawText = String((sourceTextarea && sourceTextarea.value) || '');
     if (!rawText.trim()) {
       showMiniToast('Enter closing comments first.', 'error');
+      if (indicatorEl) setClosingCommentsCopyIndicator(indicatorEl, getClosingCommentsCopyState(sourceTextarea));
+      return;
+    }
+
+    const cooldownUntil = Number(copyBtn && copyBtn.dataset.apmCopyCooldownUntil || 0);
+    if (copyBtn && cooldownUntil > Date.now()) {
+      showMiniToast('Copy to Comments is cooling down.', 'info');
       return;
     }
 
     if (copyBtn) {
       copyBtn.disabled = true;
       copyBtn.style.opacity = '0.65';
+      copyBtn.dataset.apmCopyCooldownUntil = String(Date.now() + CLOSING_COMMENTS_COOLDOWN_MS);
     }
 
     try {
@@ -8002,14 +8084,20 @@
         return;
       }
 
+      updateClosingCommentsCopyHistory(getCurrentWorkOrderNumber());
+      if (indicatorEl) setClosingCommentsCopyIndicator(indicatorEl, getClosingCommentsCopyState(sourceTextarea));
       showMiniToast('Closing comments copied to Comments tab.', 'success');
     } catch (_) {
       showMiniToast('Failed to copy to Comments tab.', 'error');
     } finally {
-      if (copyBtn) {
+      const releaseDelay = copyBtn
+        ? Math.max(0, Number(copyBtn.dataset.apmCopyCooldownUntil || 0) - Date.now())
+        : 0;
+      window.setTimeout(() => {
+        if (!copyBtn || !copyBtn.isConnected) return;
         copyBtn.disabled = false;
         copyBtn.style.opacity = '1';
-      }
+      }, releaseDelay);
     }
   }
 
@@ -8408,6 +8496,24 @@
         buttonHost.appendChild(copyBtn);
       }
 
+      let copyStateEl = buttonHost.querySelector('.apm-closing-comments-copy-state');
+      if (!copyStateEl) {
+        copyStateEl = document.createElement('span');
+        copyStateEl.className = 'apm-closing-comments-copy-state';
+        Object.assign(copyStateEl.style, {
+          display: 'inline-block',
+          position: 'absolute',
+          minWidth: '14px',
+          fontSize: '14px',
+          fontWeight: '700',
+          lineHeight: '1',
+          zIndex: '5',
+          pointerEvents: 'none',
+          userSelect: 'none'
+        });
+        buttonHost.appendChild(copyStateEl);
+      }
+
       let counterEl = buttonHost.querySelector('.apm-closing-comments-counter');
       if (!counterEl) {
         counterEl = document.createElement('div');
@@ -8440,6 +8546,10 @@
         marginTop: '0',
         zIndex: '5'
       });
+      Object.assign(copyStateEl.style, {
+        left: `${left + copyBtn.offsetWidth + 8}px`,
+        top: `${top + Math.max(0, Math.round((copyBtn.offsetHeight - 14) / 2))}px`
+      });
       Object.assign(counterEl.style, {
         left: `${left}px`,
         top: `${top + copyBtn.offsetHeight + 4}px`,
@@ -8452,6 +8562,7 @@
         counterEl.textContent = `${len}/160${reachedMin ? ' ✓' : ''}`;
         counterEl.style.color = reachedMin ? '#2ecc71' : '';
         counterEl.style.fontWeight = reachedMin ? '700' : 'normal';
+        setClosingCommentsCopyIndicator(copyStateEl, getClosingCommentsCopyState(textarea));
       };
 
       if (!textarea.dataset.apmClosingCommentsCounterBound) {
@@ -8460,7 +8571,7 @@
         textarea.dataset.apmClosingCommentsCounterBound = 'true';
       }
       if (!copyBtn.dataset.apmCopyToCommentsBound) {
-        copyBtn.addEventListener('click', () => copyClosingCommentsToCommentsTab(textarea, copyBtn));
+        copyBtn.addEventListener('click', () => copyClosingCommentsToCommentsTab(textarea, copyBtn, copyStateEl));
         copyBtn.dataset.apmCopyToCommentsBound = 'true';
       }
       updateCounter();
