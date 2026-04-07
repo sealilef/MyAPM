@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyAPM
 // @namespace    https://w.amazon.com/bin/view/MLB1-RME/MyAPM/
-// @version      0.4.8_stable
+// @version      0.4.10_stable
 // @description  APM Customizer and feature enhancer
 // @author       sealilef
 // @match        https://us1.eam.hxgnsmartcloud.com/*
@@ -26,7 +26,7 @@
     const TRACE = '[MyAPM][nav]';
     const NAV_DEBUG = false;
     const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-    const CURRENT_VERSION = '0.4.8_stable';
+    const CURRENT_VERSION = '0.4.10_stable';
     const UPDATE_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const DOWNLOAD_URL = 'https://raw.githubusercontent.com/sealilef/MyAPM/main/Stable%20Branch/MyAPM_stable.user.js';
     const SCRIPT_PAGE_URL = 'https://github.com/sealilef/MyAPM/blob/main/Stable%20Branch/MyAPM_stable.user.js';
@@ -4826,13 +4826,26 @@
 
     function getReorderConfig(contextKey) {
         if (!reorderState.contexts[contextKey] || typeof reorderState.contexts[contextKey] !== 'object') {
-            reorderState.contexts[contextKey] = { order: '', customized: false };
+            reorderState.contexts[contextKey] = { order: '', customized: false, hidden: '' };
         }
+        if (typeof reorderState.contexts[contextKey].hidden !== 'string') reorderState.contexts[contextKey].hidden = '';
         return reorderState.contexts[contextKey];
     }
 
+    function parseReorderValueList(value) {
+        return String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    function buildReorderValueList(values) {
+        return (Array.isArray(values) ? values : []).map((value) => String(value || '').trim()).filter(Boolean).join(', ');
+    }
+
+    function getHiddenRecordTabs() {
+        return new Set(parseReorderValueList(getReorderConfig('recordTabs').hidden));
+    }
+
     function orderItemsBySavedOrder(items, orderStr) {
-        const savedOrder = String(orderStr || '').split(',').map((s) => s.trim()).filter(Boolean);
+        const savedOrder = parseReorderValueList(orderStr);
         if (!savedOrder.length || !Array.isArray(items) || !items.length) return Array.isArray(items) ? items.slice() : [];
         const rank = new Map(savedOrder.map((key, index) => [key, index]));
         return items.slice().sort((a, b) => {
@@ -5090,16 +5103,62 @@
                 seen.add(panel.id);
                 const items = panel.items.items.map((item) => {
                     if (!item || item.isDestroyed) return null;
-                    if (item.tab && typeof item.tab.isHidden === 'function' && item.tab.isHidden()) return null;
                     const textValue = cleanText(item.title || item.text || item.itemId || '');
                     if (!textValue) return null;
-                    return { index: textValue, text: textValue, ref: item };
+                    let hidden = false;
+                    try {
+                        if (item.tab && typeof item.tab.isHidden === 'function') hidden = !!item.tab.isHidden();
+                        else if (item.tab) hidden = !!item.tab.hidden;
+                    } catch (_) {}
+                    return { index: textValue, text: textValue, ref: item, hidden };
                 }).filter(Boolean);
                 if (!isLikelyRecordTabPanel(ctx, panel, items)) continue;
                 if (items.length >= 2) return { ctx, panel, items, itemsKey: getRecordTabItemsKey(items) };
             }
         }
         return null;
+    }
+
+    function setRecordTabVisibility(item, hidden) {
+        if (!item || item.isDestroyed) return;
+        const tab = item.tab || null;
+        try {
+            if (tab) {
+                if (hidden) {
+                    if (typeof tab.hide === 'function') tab.hide();
+                    else if (typeof tab.setVisible === 'function') tab.setVisible(false);
+                    else tab.hidden = true;
+                } else {
+                    if (typeof tab.show === 'function') tab.show();
+                    else if (typeof tab.setVisible === 'function') tab.setVisible(true);
+                    else tab.hidden = false;
+                }
+            }
+        } catch (_) {}
+    }
+
+    function ensureVisibleRecordTabSelection(panel, hiddenSet) {
+        if (!panel || !panel.items || !panel.items.items) return;
+        try {
+            const activeItem = typeof panel.getActiveTab === 'function' ? panel.getActiveTab() : panel.activeTab;
+            const activeLabel = cleanText(activeItem && (activeItem.title || activeItem.text || activeItem.itemId || ''));
+            if (activeLabel && !hiddenSet.has(activeLabel)) return;
+            const nextVisible = panel.items.items.find((item) => {
+                const label = cleanText(item && (item.title || item.text || item.itemId || ''));
+                return label && !hiddenSet.has(label);
+            });
+            if (nextVisible && typeof panel.setActiveTab === 'function') panel.setActiveTab(nextVisible);
+        } catch (_) {}
+    }
+
+    function applyRecordTabVisibility(panel, hiddenSet) {
+        if (!panel || !panel.items || !panel.items.items) return;
+        panel.items.items.forEach((item) => {
+            const label = cleanText(item && (item.title || item.text || item.itemId || ''));
+            if (!label) return;
+            setRecordTabVisibility(item, hiddenSet.has(label));
+        });
+        ensureVisibleRecordTabSelection(panel, hiddenSet);
     }
 
     function applyGridOrderForFlow(flow, contextKey) {
@@ -5158,11 +5217,12 @@
         const probe = probeRecordTabs();
         if (!probe || !probe.panel || !probe.items.length) return;
         const orderStr = ensureDefaultReorderForContext('recordTabs', probe.items);
-        const preferredOrder = String(orderStr || '').split(',').map((s) => s.trim()).filter(Boolean);
-        if (!preferredOrder.length) return;
+        const preferredOrder = parseReorderValueList(orderStr);
+        const hiddenSet = getHiddenRecordTabs();
+        if (!preferredOrder.length && !hiddenSet.size) return;
         const panelId = String(probe.panel.id || '');
         const itemsKey = probe.itemsKey || getRecordTabItemsKey(probe.items);
-        const orderKey = preferredOrder.join('|');
+        const orderKey = `${preferredOrder.join('|')}::${Array.from(hiddenSet).join('|')}`;
         if (recordTabOrderState.panelId === panelId && recordTabOrderState.orderKey === orderKey && recordTabOrderState.itemsKey === itemsKey) return;
         let needsMove = false;
         preferredOrder.forEach((tabName, targetIndex) => {
@@ -5170,6 +5230,7 @@
             if (currentIndex !== -1 && currentIndex !== targetIndex) needsMove = true;
         });
         if (!needsMove) {
+            applyRecordTabVisibility(probe.panel, hiddenSet);
             recordTabOrderState.panelId = panelId;
             recordTabOrderState.orderKey = orderKey;
             recordTabOrderState.itemsKey = itemsKey;
@@ -5190,6 +5251,7 @@
             console.warn(TRACE, 'record tab reorder failed', error);
         } finally {
             try {
+                applyRecordTabVisibility(probe.panel, hiddenSet);
                 const Ext = getTopExt();
                 if (layoutsSuspended && Ext && typeof Ext.resumeLayouts === 'function') Ext.resumeLayouts(true);
                 if (typeof probe.panel.updateLayout === 'function') probe.panel.updateLayout();
@@ -5274,8 +5336,12 @@
                 <h4 style="margin:0; font-size:14px; color:var(--myapm-heading); font-weight:700;">Record Layout Reorder</h4>
             </div>
             <div data-role="tabs" style="display:flex; margin-bottom:0; background:var(--myapm-surface-strong); border:1px solid var(--myapm-table-border); border-radius:4px; overflow:hidden;"></div>
-            <div data-role="hint" style="font-size:11px; color:var(--myapm-text-subtle); margin-bottom:0;">Drag and drop to reorder, then click save.</div>
+            <div data-role="hint" style="font-size:11px; color:var(--myapm-text-subtle); margin-bottom:0;">Drag and drop to reorder, then click save. Record tabs can be hidden with the red X and restored below.</div>
             <div data-role="list" style="background:var(--myapm-surface-strong); border:1px solid var(--myapm-table-border); border-radius:4px; padding:5px; min-height:60px; max-height:260px; overflow-y:auto; margin-bottom:0;"></div>
+            <div data-role="hidden-wrap" style="display:none; background:var(--myapm-surface-strong); border:1px solid var(--myapm-table-border); border-radius:4px; padding:8px; margin-bottom:0;">
+                <div style="font-size:11px; font-weight:700; color:var(--myapm-text-subtle); margin-bottom:6px;">Hidden Tabs</div>
+                <div data-role="hidden-list" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+            </div>
             <div style="display:flex; gap:8px; justify-content:flex-end;">
                 <button type="button" data-action="reset" style="border:1px solid var(--myapm-btn-border); background:var(--myapm-btn-bg); color:var(--myapm-btn-text); border-radius:6px; padding:10px 12px; font-size:12px; font-weight:700; cursor:pointer;">Reset to Default</button>
                 <button type="button" data-action="save" style="border:none; background:var(--myapm-accent); color:#ffffff; border-radius:6px; padding:12px 14px; font-size:14px; font-weight:700; cursor:pointer;">Save Layout Order</button>
@@ -5284,6 +5350,8 @@
 
         const tabWrap = panel.querySelector('[data-role="tabs"]');
         const listEl = panel.querySelector('[data-role="list"]');
+        const hiddenWrapEl = panel.querySelector('[data-role="hidden-wrap"]');
+        const hiddenListEl = panel.querySelector('[data-role="hidden-list"]');
         let activeContextKey = 'wsjobs';
 
         const probeForContext = (contextKey) => {
@@ -5324,19 +5392,34 @@
 
         const renderList = () => {
             listEl.innerHTML = '';
+            hiddenListEl.innerHTML = '';
             const context = REORDER_CONTEXTS[activeContextKey];
             const probe = probeForContext(activeContextKey);
             const items = probe && Array.isArray(probe.items) ? probe.items.map((item) => ({ index: item.index, text: item.text })) : [];
+            const hiddenSet = activeContextKey === 'recordTabs' ? getHiddenRecordTabs() : new Set();
+            const hiddenItems = activeContextKey === 'recordTabs'
+                ? items.filter((item) => hiddenSet.has(item.index))
+                : [];
             const orderStr = ensureDefaultReorderForContext(activeContextKey, items);
-            const ordered = orderItemsBySavedOrder(items, orderStr);
-            if (!ordered.length) {
+            const ordered = orderItemsBySavedOrder(activeContextKey === 'recordTabs' ? items.filter((item) => !hiddenSet.has(item.index)) : items, orderStr);
+            const orderedHidden = orderItemsBySavedOrder(hiddenItems, orderStr);
+            if (!ordered.length && !orderedHidden.length) {
                 const emptyEl = document.createElement('div');
                 emptyEl.textContent = context.emptyText;
                 emptyEl.style.color = 'var(--myapm-text-subtle)';
                 emptyEl.style.textAlign = 'center';
                 emptyEl.style.padding = '10px';
                 listEl.appendChild(emptyEl);
+                hiddenWrapEl.style.display = 'none';
                 return;
+            }
+            if (!ordered.length) {
+                const emptyEl = document.createElement('div');
+                emptyEl.textContent = 'All tabs are currently hidden. Restore one below.';
+                emptyEl.style.color = 'var(--myapm-text-subtle)';
+                emptyEl.style.textAlign = 'center';
+                emptyEl.style.padding = '10px';
+                listEl.appendChild(emptyEl);
             }
 
             ordered.forEach((item) => {
@@ -5359,7 +5442,53 @@
                     border: '1px solid var(--myapm-table-border)',
                     userSelect: 'none'
                 });
-                row.innerHTML = `<span><b style="color:var(--myapm-accent);">::</b> ${escapeHtml(item.text)}</span><span style="color:var(--myapm-text-subtle); font-size:10px;">[${escapeHtml(String(item.index))}]</span>`;
+                const labelEl = document.createElement('span');
+                labelEl.innerHTML = `<b style="color:var(--myapm-accent);">::</b> ${escapeHtml(item.text)}`;
+                const metaWrap = document.createElement('span');
+                Object.assign(metaWrap.style, {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                });
+                const indexEl = document.createElement('span');
+                indexEl.textContent = `[${String(item.index)}]`;
+                Object.assign(indexEl.style, {
+                    color: 'var(--myapm-text-subtle)',
+                    fontSize: '10px'
+                });
+                metaWrap.appendChild(indexEl);
+                if (activeContextKey === 'recordTabs') {
+                    const hideBtn = document.createElement('button');
+                    hideBtn.type = 'button';
+                    hideBtn.textContent = 'X';
+                    hideBtn.title = `Hide ${item.text}`;
+                    Object.assign(hideBtn.style, {
+                        border: '1px solid rgba(220, 92, 92, 0.55)',
+                        background: 'rgba(110, 24, 24, 0.88)',
+                        color: '#ffd6d6',
+                        borderRadius: '999px',
+                        width: '20px',
+                        height: '20px',
+                        padding: '0',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        lineHeight: '1',
+                        cursor: 'pointer'
+                    });
+                    hideBtn.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const config = getReorderConfig('recordTabs');
+                        const nextHidden = new Set(parseReorderValueList(config.hidden));
+                        nextHidden.add(item.index);
+                        config.hidden = buildReorderValueList(Array.from(nextHidden));
+                        config.customized = true;
+                        saveReorderState();
+                        renderList();
+                    });
+                    metaWrap.appendChild(hideBtn);
+                }
+                row.append(labelEl, metaWrap);
                 row.addEventListener('dragstart', (event) => {
                     event.dataTransfer.setData('text/plain', item.index);
                     row.classList.add('dragging');
@@ -5374,6 +5503,34 @@
                     row.style.borderColor = 'var(--myapm-table-border)';
                 });
                 listEl.appendChild(row);
+            });
+
+            hiddenWrapEl.style.display = orderedHidden.length ? 'block' : 'none';
+            orderedHidden.forEach((item) => {
+                const restoreBtn = document.createElement('button');
+                restoreBtn.type = 'button';
+                restoreBtn.textContent = `+ ${item.text}`;
+                restoreBtn.title = `Restore ${item.text}`;
+                Object.assign(restoreBtn.style, {
+                    border: '1px solid var(--myapm-btn-border)',
+                    background: 'var(--myapm-btn-bg)',
+                    color: 'var(--myapm-btn-text)',
+                    borderRadius: '999px',
+                    padding: '6px 10px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                });
+                restoreBtn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const config = getReorderConfig('recordTabs');
+                    config.hidden = buildReorderValueList(parseReorderValueList(config.hidden).filter((value) => value !== item.index));
+                    config.customized = true;
+                    saveReorderState();
+                    renderList();
+                });
+                hiddenListEl.appendChild(restoreBtn);
             });
         };
 
@@ -5414,12 +5571,13 @@
             event.preventDefault();
             event.stopPropagation();
             const items = Array.from(listEl.querySelectorAll('[data-index]'));
-            if (!items.length) {
+            if (!items.length && activeContextKey !== 'recordTabs') {
                 showToast('No layout items to save.', 'error');
                 return;
             }
             const config = getReorderConfig(activeContextKey);
-            config.order = items.map((item) => item.dataset.index).join(', ');
+            const hiddenValues = activeContextKey === 'recordTabs' ? parseReorderValueList(config.hidden) : [];
+            config.order = buildReorderValueList(items.map((item) => item.dataset.index).concat(hiddenValues));
             config.customized = true;
             saveReorderState();
             applySavedLayoutOrders();
@@ -5432,6 +5590,7 @@
             const config = getReorderConfig(activeContextKey);
             config.order = '';
             config.customized = false;
+            if (activeContextKey === 'recordTabs') config.hidden = '';
             saveReorderState();
             renderList();
             applySavedLayoutOrders();
@@ -6262,6 +6421,7 @@
   if (window.self !== window.top) return;
   if (location.hostname === 'github.com') return;
   const PAGE_WINDOW = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+  const CURRENT_USER_STORAGE_KEY = 'myapmCurrentUser';
 
   const IDS = {
     style: 'apm-my-labor-style',
@@ -6277,6 +6437,76 @@
   let activeTab = 1;
   let isFetching = false;
   let laborTargetOverride = '';
+
+  function extractUserNameOnlyLocal(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const emailMatch = raw.match(/\b([A-Z0-9._%+-]+)@amazon\.com\b/i);
+    if (emailMatch && emailMatch[1]) return emailMatch[1].trim();
+    const genericEmailMatch = raw.match(/\b([^\s@]+)@[^\s@]+\b/);
+    if (genericEmailMatch && genericEmailMatch[1]) return genericEmailMatch[1].trim();
+    return raw;
+  }
+
+  function getSavedCurrentUserNameLocal() {
+    try {
+      return extractUserNameOnlyLocal(window.top.localStorage.getItem(CURRENT_USER_STORAGE_KEY) || '');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function saveCurrentUserNameLocal(value) {
+    const next = extractUserNameOnlyLocal(value);
+    if (!next) return '';
+    try {
+      window.top.localStorage.setItem(CURRENT_USER_STORAGE_KEY, next);
+    } catch (_) {}
+    return next;
+  }
+
+  function detectCurrentUserNameLocal() {
+    const topWin = window.top;
+    const doc = topWin.document;
+
+    try {
+      const getter = topWin.EAM && topWin.EAM.UserData && typeof topWin.EAM.UserData.get === 'function'
+        ? topWin.EAM.UserData.get.bind(topWin.EAM.UserData)
+        : null;
+      if (getter) {
+        const keys = ['username', 'userName', 'login', 'loginName', 'email', 'person', 'employee'];
+        for (const key of keys) {
+          const raw = getter(key);
+          const value = String(raw || '').trim();
+          if (value && value.length >= 2 && value.length <= 120) return saveCurrentUserNameLocal(value);
+        }
+      }
+    } catch (_) {}
+
+    const selectors = [
+      '[data-testid*="user" i]',
+      '[aria-label*="user" i]',
+      '[title*="user" i]',
+      '[id*="user" i]',
+      '[class*="user" i]'
+    ];
+    for (const selector of selectors) {
+      const el = doc.querySelector(selector);
+      const text = String(el && el.textContent ? el.textContent : '').trim();
+      if (text && text.length >= 2 && text.length <= 120) return saveCurrentUserNameLocal(text);
+    }
+
+    try {
+      const headerText = Array.from(doc.querySelectorAll('header, .x-toolbar, .x-tab-bar, .x-box-inner')).slice(0, 12)
+        .map((el) => String(el.textContent || '').trim())
+        .filter(Boolean)
+        .join(' ');
+      const emailMatch = headerText.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+      if (emailMatch && emailMatch[0]) return saveCurrentUserNameLocal(emailMatch[0]);
+    } catch (_) {}
+
+    return getSavedCurrentUserNameLocal();
+  }
 
   function ensureBookedLaborStyles() {
     if (document.getElementById(IDS.style)) return;
@@ -6366,7 +6596,7 @@
   function getDefaultLaborEmployeeId() {
     const employeeId = extractEmployeeId();
     if (employeeId) return employeeId;
-    return extractUserNameOnly(detectCurrentUserName()).toUpperCase();
+    return extractUserNameOnlyLocal(detectCurrentUserNameLocal()).toUpperCase();
   }
 
   function getEffectiveEmployeeId() {
